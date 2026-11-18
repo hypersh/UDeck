@@ -1,0 +1,31 @@
+# UDeck - (web root)/udeck/.htaccess
+
+# 폴더 목록 노출 금지
+Options -Indexes
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # HTTPS 강제
+    RewriteCond %{HTTPS} !=on
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+    # Authorization 헤더를 PHP로 전달 (일부 호스팅에서 누락되는 문제 방지)
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+
+# 숨김 파일, 내부용 PHP(_로 시작), DB·문서·백업 파일 직접 접근 차단
+<FilesMatch "^(\.|_)">
+    Require all denied
+</FilesMatch>
+<FilesMatch "\.(sqlite|sqlite3|db|sql|bak|log|ini|md)$">
+    Require all denied
+</FilesMatch>
+
+# 보안 헤더
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "same-origin"
+    Header always set X-Robots-Tag "noindex, nofollow"
+</IfModule>

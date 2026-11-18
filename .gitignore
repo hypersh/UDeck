@@ -1,0 +1,12 @@
+# Server-only files (never commit)
+udeck_private/config.php
+udeck_private/data/
+udeck_private/sessions/
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
