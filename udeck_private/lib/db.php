@@ -93,6 +93,8 @@ function udeck_migrate(PDO $pdo): void
                   WHEN lower(code || ' ' || name) LIKE '%gemini%' THEN 'Gemini'
                   WHEN lower(code || ' ' || name) LIKE '%antigravity%' THEN 'Antigravity'
                   ELSE substr(name, 1, 12) END;",
+        // v7: 할 일 정렬 키 (Google Tasks의 '내 순서')
+        7 => "ALTER TABLE google_items ADD COLUMN sort_key TEXT;",
     ];
     foreach ($migrations as $ver => $sql) {
         if ($ver <= $current) {

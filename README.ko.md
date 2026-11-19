@@ -27,9 +27,9 @@
 5. 설정 → 연결 키에서 "구글 연동" 키를 만들고 `gas/UDeck_Sync.gs`를 Apps Script에 넣는다.
 6. PC마다 "PC 작업 기록" 키를 만들어 복사한 뒤 `agent/install.cmd`를 더블클릭한다.
 
-자세한 사용법은 UDeck 화면 오른쪽 위의 **도움말**에 한국어로 정리되어 있다. 설치 문서: [docs/INSTALL.md](docs/INSTALL.md) (영문).
+**설치 및 설정 매뉴얼(한국어)**: [docs/MANUAL.ko.md](docs/MANUAL.ko.md) — 서버 설치, config.php, 구글 Apps Script 연결과 업데이트, PC 자동 기록, HANDOFF.md, 업데이트 방법, 문제 해결을 한곳에 정리했다. 설치 후 사용법은 UDeck 화면 오른쪽 위 **도움말**에 있다.
 
-## 알려진 제한 (1.1)
+## 알려진 제한 (1.2)
 
 - 모든 시각은 한국 표준시(UTC+9)로 저장·표시한다.
 - 설치 하나에 사용자 한 명.

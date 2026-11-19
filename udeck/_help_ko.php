@@ -75,6 +75,7 @@
       <h3>할 일</h3>
       <ul>
         <li>Google Tasks의 목록별로 묶어 보여 준다. 오른쪽 위 선택 상자로 한 목록만 볼 수 있다.</li>
+        <li>목록과 항목의 순서는 Google Tasks의 "내 순서"를 그대로 따른다. 하위 할 일은 상위 할 일 아래에 들여 써서 보인다(구글 연동 스크립트 v1.1 이상).</li>
         <li>지났거나 오늘이 마감인 항목은 붉게 표시된다. 완료 처리는 Google Tasks에서 한다.</li>
       </ul>
       <h3>메일</h3>
@@ -190,7 +191,16 @@
           <tr><td><code>excludeCalendars</code></td><td>없음</td><td>제외할 캘린더 이름. 예: <code>['대한민국의 휴일']</code></td></tr>
         </tbody>
       </table>
-      <p>코드를 새 버전으로 바꿀 때는 기존 <code>send</code> 값을 메모해 두었다가 다시 맞춘다. 스크립트 속성과 트리거는 그대로 둔다.</p>
+      <h3>코드를 새 버전으로 바꾸기</h3>
+      <p>UDeck을 업데이트하면서 Apps Script 코드도 바뀐 경우(변경 이력에 표시) 아래 순서로 교체한다. 할 일·일정·메일을 보내는 계정마다 각각 한다.</p>
+      <ol class="steps">
+        <li>그 구글 계정으로 <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a>에 접속해 UDeck 연동 프로젝트를 연다.</li>
+        <li>왼쪽 파일 목록에서 <code>코드.gs</code>를 열고, 맨 위 <code>CONFIG</code>의 <code>send</code> 값을 메모해 둔다.</li>
+        <li>편집기 안을 누르고 <code>Ctrl + A</code> → <code>Delete</code>로 지운 뒤, 이 화면의 새 코드(위 "Apps Script 코드 보기")를 붙여 넣는다.</li>
+        <li><code>send</code>를 메모한 값으로 다시 고치고 <code>Ctrl + S</code>로 저장한다. 두 번째 줄의 버전 표시가 바뀌었는지 확인한다.</li>
+        <li><code>testSync</code>를 실행해 로그에 <code>"ok":true</code>가 나오는지 확인한다. 권한 창이 다시 뜨면 허용한다.</li>
+      </ol>
+      <p class="note">스크립트 속성(<code>UDECK_URL</code>, <code>UDECK_TOKEN</code>)과 10분 트리거는 코드와 따로 저장되므로 다시 만들 필요가 없다.</p>
       <p>수집 결과가 0건이면 함수 <code>diagnoseUDeck</code>을 실행해 실행 계정, 캘린더별 표시 여부와 일정 수, 할 일 목록별 개수, 메일 개수를 확인한다.</p>
     </section>
 
@@ -256,7 +266,7 @@
       </ul>
       <h3>반영되는 곳</h3>
       <ul>
-        <li>프로젝트의 <b>다음 할 일</b>: <code>다음 할 일: …</code> 줄, 또는 <code>## 다음 할 일</code> 제목 아래 첫 항목.</li>
+        <li>프로젝트의 <b>다음 할 일</b>: <code>다음 할 일: …</code> 줄, 또는 <code>## 다음 할 일</code> 제목 아래 첫 항목. 영어 <code>Next step: …</code>, <code>## Next steps</code>도 알아본다.</li>
         <li>프로젝트 고치기 창 아래쪽: HANDOFF.md 전체 내용과 갱신 시각.</li>
       </ul>
       <h3>작성 예</h3>

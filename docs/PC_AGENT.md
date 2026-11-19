@@ -70,18 +70,18 @@ Per-PC settings and state are kept in `%LOCALAPPDATA%\UDeck\` (`config.json`, `s
 
 A handoff note in a project folder. When it changes, UDeck updates the project:
 
-- **Next step**: the text after a `다음 할 일:` line, or the first item under a `## 다음 할 일` heading. (UDeck looks for these Korean markers in 1.0.)
+- **Next step**: the text after a `Next step:` line, or the first item under a `## Next steps` heading. The Korean markers `다음 할 일:` and `## 다음 할 일` work too (English markers since 1.2.1).
 - **Handoff note**: the whole file, shown in the project's edit form.
 
 ```markdown
 # HANDOFF
-## 현재 상태
+## Current status
 Second revision of the background section done.
 
-## 다음 할 일
+## Next steps
 - Draft the budget table
 
-## 메모
+## Notes
 - Last worked on: Laptop, Claude Code
 ```
 
@@ -90,7 +90,7 @@ The file must be inside a watch folder, and a folder name in its path must match
 ```markdown
 ## Work handoff
 - At the start of a session, read HANDOFF.md first.
-- At the end of a session, update "현재 상태" (current status) and "다음 할 일" (next step) in HANDOFF.md.
+- At the end of a session, update "Current status" and "Next steps" in HANDOFF.md.
 ```
 
 ## Troubleshooting

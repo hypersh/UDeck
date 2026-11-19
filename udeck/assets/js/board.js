@@ -244,7 +244,9 @@
         due = dd === 0 ? T('오늘') : dd === -1 ? T('어제') : dd === 1 ? T('내일') : (p.m + '/' + p.d);
         over = dd <= 0;
       }
-      return '<li><div class="row"><span class="tt">' + esc(t.title) + '</span>' +
+      // 하위 항목(정렬 키에 상위 위치가 들어 있음)은 들여 쓴다
+      const sub = t.sort_key && t.sort_key.split('|').length > 2;
+      return '<li' + (sub ? ' class="sub"' : '') + '><div class="row"><span class="tt">' + esc(t.title) + '</span>' +
         '<span class="due' + (over ? ' over' : '') + '">' + esc(due) + '</span></div></li>';
     };
     if (state.taskList || lists.length < 2) {

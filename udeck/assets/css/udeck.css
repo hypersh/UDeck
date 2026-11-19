@@ -180,6 +180,8 @@ a{color:inherit}
 
 /* 할 일 */
 .tasks{list-style:none;margin:0;padding:0}
+.tasks li.sub .row{padding-left:16px}
+.tasks li.sub .tt::before{content:"└ ";color:var(--muted)}
 .tasks .row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:6px 0;border-top:1px solid var(--surface-2)}
 .tasks li:first-child .row{border-top:0}
 .tasks .tt{min-width:0}

@@ -63,7 +63,7 @@ Only short metadata is sent: PC, tool, session ID, work folder, the first 500 ch
 5. **Connect Google.** In UDeck, go to Settings → Connection keys and create a *Google sync* key. Then follow [Google sync](docs/GOOGLE_SYNC.md) to add the Apps Script in `gas/`.
 6. **Install the PC agent.** Create a *PC work logging* key for each PC, copy it, and double-click `agent/install.cmd` on that PC. See [PC agent](docs/PC_AGENT.md).
 
-Full instructions: [Installation](docs/INSTALL.md). The in-app **Help** page covers everyday use.
+Full instructions: [Installation](docs/INSTALL.md), [Google sync](docs/GOOGLE_SYNC.md) (including how to update the Apps Script) and [PC agent](docs/PC_AGENT.md). A complete Korean manual is in [docs/MANUAL.ko.md](docs/MANUAL.ko.md). The in-app **Help** page covers everyday use.
 
 ## Repository layout
 
@@ -84,7 +84,7 @@ Full instructions: [Installation](docs/INSTALL.md). The in-app **Help** page cov
 - The database, configuration and sessions live outside the web root. `.htaccess` also blocks direct access to internal files.
 - Optional IP allow list (`allowed_ips`), for example to restrict access to a Tailscale network.
 
-## Known limitations (1.1)
+## Known limitations (1.2)
 
 - Times are stored and shown in Korea Standard Time (UTC+9).
 - One user per installation.

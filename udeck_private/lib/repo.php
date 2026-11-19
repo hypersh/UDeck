@@ -184,7 +184,8 @@ function board_data(bool $includeDone = false): array
         ORDER BY start_at, all_day DESC, title")->fetchAll();
     $tasks = $db->query("SELECT * FROM google_items WHERE kind = 'task'
         AND COALESCE(status, '') <> 'completed'
-        ORDER BY container, CASE WHEN due_at IS NULL THEN 1 ELSE 0 END, due_at, title LIMIT 300")->fetchAll();
+        ORDER BY CASE WHEN sort_key IS NULL THEN 1 ELSE 0 END, account, sort_key,
+                 container, CASE WHEN due_at IS NULL THEN 1 ELSE 0 END, due_at, title LIMIT 300")->fetchAll();
     $mails = $db->query("SELECT * FROM google_items WHERE kind = 'mail'
         ORDER BY start_at DESC LIMIT 50")->fetchAll();
 
@@ -658,15 +659,16 @@ function ingest_activity(array $token, array $in): array
     return ['ok' => true, 'id' => $id, 'project_id' => $projId];
 }
 
-/** HANDOFF.md에서 "다음 할 일" 한 줄 찾기 */
+/** HANDOFF.md에서 "다음 할 일" 한 줄 찾기 (한국어 "다음 할 일", 영어 "Next step(s)" / "Next action") */
 function handoff_next(string $md): ?string
 {
-    // 1) "다음 할 일: ..." 형식
-    if (preg_match('/^\s*(?:[-*]\s*)?(?:\*\*)?다음\s*할\s*일(?:\*\*)?\s*[:：]\s*(.+)$/mu', $md, $m)) {
+    $label = '(?:다음\s*할\s*일|next\s*(?:steps?|actions?))';
+    // 1) "다음 할 일: ..." / "Next step: ..." 형식
+    if (preg_match('/^\s*(?:[-*]\s*)?(?:\*\*)?' . $label . '(?:\*\*)?\s*[:：]\s*(?:\*\*)?\s*(.+)$/mui', $md, $m)) {
         return clean(trim($m[1], " *"), 300);
     }
-    // 2) "## 다음 할 일" 제목 아래 첫 항목
-    if (preg_match('/^#{1,4}\s*다음\s*할\s*일.*\R+((?:\s*\R)*)\s*(?:[-*]|\d+\.)?\s*(?:\[[ x]\]\s*)?(.+)$/mu', $md, $m)) {
+    // 2) "## 다음 할 일" / "## Next steps" 제목 아래 첫 항목
+    if (preg_match('/^#{1,4}\s*' . $label . '.*\R+((?:\s*\R)*)\s*(?:[-*]|\d+\.)?\s*(?:\[[ x]\]\s*)?(.+)$/mui', $md, $m)) {
         return clean(trim($m[2]), 300);
     }
     return null;
@@ -715,8 +717,8 @@ function ingest_google(array $in): array
     $db = udeck_db();
     $account = clean($in['account'] ?? null, 120) ?? '';
     $ins = $db->prepare('INSERT OR REPLACE INTO google_items
-        (kind, ext_id, container, title, detail, start_at, end_at, all_day, due_at, status, link, account)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
+        (kind, ext_id, container, title, detail, start_at, end_at, all_day, due_at, status, link, account, sort_key)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
     $count = 0;
     $db->beginTransaction();
     try {
@@ -752,6 +754,7 @@ function ingest_google(array $in): array
                         clean($x['link'] ?? null, 500)];
                 }
                 $row[] = $account;
+                $row[] = $kind === 'task' ? clean($x['order'] ?? null, 160) : null;
                 $ins->execute($row);
                 $count++;
             }

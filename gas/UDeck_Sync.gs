@@ -1,5 +1,5 @@
 /**
- * UDeck 구글 연동 스크립트 v1.0
+ * UDeck 구글 연동 스크립트 v1.1 (할 일을 Google Tasks의 '내 순서' 그대로 보냄)
  * Google Calendar, Google Tasks, Gmail의 최근 내용을 UDeck으로 보낸다.
  *
  * 준비
@@ -113,26 +113,36 @@ function collectTasks_() {
   } catch (err) {
     throw new Error('Google Tasks API 서비스가 추가되지 않았습니다. 편집기 왼쪽 "서비스"에서 추가하세요. (' + err.message + ')');
   }
-  lists.forEach(list => {
+  lists.forEach((list, li) => {
+    // 한 목록의 항목을 모두 받은 뒤, Google Tasks 화면의 '내 순서'(position)대로 정렬 키를 만든다
+    const items = [];
     let pageToken;
     do {
       const res = Tasks.Tasks.list(list.id, {
         showCompleted: false, showHidden: false, maxResults: CONFIG.taskMax, pageToken: pageToken,
       });
-      (res.items || []).forEach(t => {
-        if (!t.title || !t.title.trim()) return;
-        out.push({
-          id: t.id,
-          list: list.title,
-          title: t.title,
-          notes: t.notes || '',
-          due: t.due ? t.due.substring(0, 10) : null,   // 마감은 날짜만 의미가 있다
-          status: t.status,
-          link: withAuthUser_(t.webViewLink || 'https://tasks.google.com/'),
-        });
-      });
+      (res.items || []).forEach(t => items.push(t));
       pageToken = res.nextPageToken;
-    } while (pageToken && out.length < 500);
+    } while (pageToken && out.length + items.length < 500);
+
+    const pos = {};
+    items.forEach(t => { pos[t.id] = t.position || ''; });
+    items.forEach(t => {
+      if (!t.title || !t.title.trim()) return;
+      // 목록 순서 | 상위 항목 위치 | 자기 위치  (하위 항목은 상위 항목 바로 아래에 온다)
+      const sub = !!(t.parent && pos[t.parent] !== undefined);
+      const order = ('000' + li).slice(-3) + '|' + (sub ? pos[t.parent] + '|' : '') + (t.position || '');
+      out.push({
+        id: t.id,
+        list: list.title,
+        title: t.title,
+        notes: t.notes || '',
+        due: t.due ? t.due.substring(0, 10) : null,   // 마감은 날짜만 의미가 있다
+        status: t.status,
+        order: order,
+        link: withAuthUser_(t.webViewLink || 'https://tasks.google.com/'),
+      });
+    });
   });
   return out;
 }

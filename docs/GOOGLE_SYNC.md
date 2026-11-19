@@ -7,7 +7,7 @@ A Google Apps Script reads your Calendar, Tasks and Gmail with your own account'
 | Item | Contents |
 |---|---|
 | Events | Calendars that are checked (visible) in Google Calendar, from 7 days before this month to 7 days after it. Declined events are skipped. |
-| Tasks | Open tasks from all lists, with list name and due date |
+| Tasks | Open tasks from all lists, with list name, due date and position in Google Tasks' "My order" (script v1.1 or later) |
 | Mail | Inbox threads that are unread or starred, last 7 days, up to 30: subject, sender name, date. No message bodies. |
 
 ## Setup
@@ -27,6 +27,18 @@ A Google Apps Script reads your Calendar, Tasks and Gmail with your own account'
 7. Approve the permissions. Because you wrote the script yourself, Google shows "Google hasn't verified this app"; choose **Advanced → Go to UDeck Sync** and **Allow**.
 8. The execution log should show `"ok":true` with the account and item counts.
 9. Run `installTrigger` to send every 10 minutes. Run `removeTrigger` to stop.
+
+## Updating the script
+
+When a UDeck release changes the Apps Script (see the [changelog](../CHANGELOG.md)), replace the code in every account that sends data:
+
+1. Sign in to [script.google.com](https://script.google.com) with that account and open the UDeck sync project.
+2. Open `Code.gs` and note the `send` value in `CONFIG` at the top.
+3. Click in the editor, press `Ctrl + A`, then `Delete`, and paste the new [`gas/UDeck_Sync.gs`](../gas/UDeck_Sync.gs).
+4. Set `send` back to the value you noted and save with `Ctrl + S`. The second line shows the script version.
+5. Run `testSync` and check for `"ok":true`. Allow the permissions again if asked.
+
+Script properties and the trigger are stored apart from the code, so they stay as they are.
 
 ## Several Google accounts
 

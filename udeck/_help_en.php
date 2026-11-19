@@ -75,6 +75,7 @@
       <h3>Tasks</h3>
       <ul>
         <li>Grouped by Google Tasks list. Use the selector at the top right to show a single list.</li>
+        <li>Lists and items follow the "My order" sorting in Google Tasks. Subtasks are indented under their parent task (Google sync script v1.1 or later).</li>
         <li>Items that are overdue or due today are shown in red. Mark tasks done in Google Tasks.</li>
       </ul>
       <h3>Mail</h3>
@@ -190,7 +191,16 @@
           <tr><td><code>excludeCalendars</code></td><td>none</td><td>Calendar names to skip, e.g. <code>['Holidays in South Korea']</code></td></tr>
         </tbody>
       </table>
-      <p>When replacing the code with a new version, note your current <code>send</code> value and set it again. Leave the script properties and trigger as they are.</p>
+      <h3>Updating the script</h3>
+      <p>When a UDeck update includes a new Apps Script (noted in the changelog), replace the code in each account that sends data.</p>
+      <ol class="steps">
+        <li>Sign in to <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a> with that Google account and open the UDeck sync project.</li>
+        <li>Open <code>Code.gs</code> and note the <code>send</code> value in <code>CONFIG</code> at the top.</li>
+        <li>Click in the editor, press <code>Ctrl + A</code> then <code>Delete</code>, and paste the new code (see "Show the Apps Script code" above).</li>
+        <li>Set <code>send</code> back to the value you noted and save with <code>Ctrl + S</code>. Check that the version on the second line changed.</li>
+        <li>Run <code>testSync</code> and check that the log shows <code>"ok":true</code>. Allow the permissions again if asked.</li>
+      </ol>
+      <p class="note">Script properties (<code>UDECK_URL</code>, <code>UDECK_TOKEN</code>) and the 10-minute trigger are stored apart from the code, so you do not need to set them again.</p>
       <p>If nothing is collected, run <code>diagnoseUDeck</code> to see the account in use, each calendar's visibility and event count, task counts per list, and mail counts.</p>
     </section>
 
@@ -255,7 +265,7 @@
       </ul>
       <h3>Where it shows up</h3>
       <ul>
-        <li>The project's <b>next step</b>: a <code>다음 할 일: …</code> line, or the first item under a <code>## 다음 할 일</code> heading. These Korean markers are what UDeck looks for.</li>
+        <li>The project's <b>next step</b>: a <code>Next step: …</code> line, or the first item under a <code>## Next steps</code> heading. The Korean markers <code>다음 할 일: …</code> and <code>## 다음 할 일</code> work too.</li>
         <li>The bottom of the project edit form: the full HANDOFF.md and when it was updated.</li>
       </ul>
       <h3>Example</h3>

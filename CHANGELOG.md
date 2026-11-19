@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.1 (2026-11-19)
+
+- Tasks now follow the "My order" sorting of Google Tasks: lists in Google's order, items by position, subtasks indented under their parent. Requires the updated Apps Script (`gas/UDeck_Sync.gs` v1.1); tasks sent by the old script keep the previous order
+- HANDOFF.md next step is also read from English markers: `Next step: …` or the first item under `## Next steps`
+- Docs: complete Korean installation and setup manual (`docs/MANUAL.ko.md`); how to update the Apps Script in `docs/GOOGLE_SYNC.md` and the in-app Help
+- Database schema version 7 (adds `google_items.sort_key`)
+
 ## 1.2 (2026-11-19)
 
 - **Workspaces by project.** Each workspace row now shows one box per project worked on there (most recent first) instead of one column per tool. A box shows the project, latest work, the tools used as short-name icons, progress (bar and %), the last time and a 7-day strip. The same project appears in every workspace where it was worked on. ◀ ▶ scroll when the boxes do not fit
