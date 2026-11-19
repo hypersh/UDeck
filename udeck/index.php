@@ -78,8 +78,8 @@ page_head('UDeck');
             <span class="ramp"><i style="--a:70%"></i><i style="--a:40%"></i><i style="--a:18%"></i><i style="--a:4%"></i></span>
             <?= te('오래됨') ?></div>
           <div class="mx-nav" id="mxNav" hidden>
-            <button type="button" class="btn btn-ghost" id="mxPrev" aria-label="<?= te('이전 도구') ?>" title="<?= te('이전 도구') ?>">◀</button>
-            <button type="button" class="btn btn-ghost" id="mxNext" aria-label="<?= te('다음 도구') ?>" title="<?= te('다음 도구') ?>">▶</button>
+            <button type="button" class="btn btn-ghost" id="mxPrev" aria-label="<?= te('왼쪽으로 넘기기') ?>" title="<?= te('왼쪽으로 넘기기') ?>">◀</button>
+            <button type="button" class="btn btn-ghost" id="mxNext" aria-label="<?= te('오른쪽으로 넘기기') ?>" title="<?= te('오른쪽으로 넘기기') ?>">▶</button>
           </div>
         </div>
       </div>
@@ -95,13 +95,19 @@ page_head('UDeck');
       <div class="sec-h">
         <h2 id="h-proj"><?= te('프로젝트|제목') ?></h2>
         <div class="tools">
+          <label class="sr" for="projSort"><?= te('정렬') ?></label>
+          <select class="select mini" id="projSort">
+            <option value="rank"><?= te('중요도순') ?></option>
+            <option value="due"><?= te('마감일순') ?></option>
+            <option value="created"><?= te('등록순') ?></option>
+          </select>
           <label class="check" style="font-size:12.5px"><input type="checkbox" id="showDone"> <?= te('완료 포함') ?></label>
           <button class="btn btn-ghost" type="button" id="btnAddProject"><?= te('프로젝트 추가') ?></button>
         </div>
       </div>
       <div class="sec-b" style="overflow-x:auto">
         <table class="projects">
-          <thead><tr><th style="width:24%"><?= te('프로젝트') ?></th><th style="width:34%"><?= te('작업 흐름') ?></th><th><?= te('다음 할 일') ?></th><th style="width:70px"><?= te('마감') ?></th></tr></thead>
+          <thead><tr><th class="c-rank" title="<?= te('중요도 순위. 중요도순에서 끌어서 바꿉니다.') ?>">#</th><th style="width:22%"><?= te('프로젝트') ?></th><th><?= te('장치') ?></th><th><?= te('도구') ?></th><th style="width:96px"><?= te('진행률') ?></th><th><?= te('다음 할 일') ?></th><th style="width:76px"><?= te('마감') ?></th></tr></thead>
           <tbody id="projRows"></tbody>
         </table>
         <p class="empty" id="projEmpty" hidden><?= te('프로젝트가 없습니다. 프로젝트를 추가하면 작업 기록이 프로젝트별로 모입니다.') ?></p>
@@ -164,6 +170,15 @@ page_head('UDeck');
         <textarea class="textarea" id="actSummary" name="summary" maxlength="1000" required placeholder="<?= te('예: 선행연구 절 2차 수정, 참고문헌 정리 중') ?>"></textarea>
       </div>
       <div class="field">
+        <label for="actProgN"><?= te('진행률') ?> <span class="opt"><?= te('선택') ?></span></label>
+        <div class="prog-in" id="actProgWrap">
+          <input type="range" id="actProgR" min="0" max="100" step="5" aria-label="<?= te('진행률') ?>">
+          <input class="input" id="actProgN" name="progress" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="-">
+          <span class="pct">%</span>
+          <button class="btn btn-text" type="button" id="actProgClear"><?= te('비우기') ?></button>
+        </div>
+      </div>
+      <div class="field">
         <label for="actNext"><?= te('다음 할 일') ?> <span class="opt"><?= te('선택, 프로젝트의 다음 할 일로 반영') ?></span></label>
         <input class="input" id="actNext" name="next_action" maxlength="300">
       </div>
@@ -197,15 +212,11 @@ page_head('UDeck');
         <label for="pjName"><?= te('이름') ?></label>
         <input class="input" id="pjName" name="name" maxlength="100" required>
       </div>
-      <div class="grid3">
+      <div class="grid2">
         <div class="field">
           <label for="pjCat"><?= te('분류') ?></label>
           <input class="input" id="pjCat" name="category" list="catList" maxlength="30">
           <datalist id="catList"><option><?= te('연구') ?></option><option><?= te('개발') ?></option><option><?= te('교육') ?></option><option><?= te('강의') ?></option><option><?= te('행정') ?></option><option><?= te('개인') ?></option></datalist>
-        </div>
-        <div class="field">
-          <label for="pjPri"><?= te('우선순위') ?></label>
-          <select class="select" id="pjPri" name="priority"><option value="1"><?= te('높음') ?></option><option value="2" selected><?= te('보통') ?></option><option value="3"><?= te('낮음') ?></option></select>
         </div>
         <div class="field">
           <label for="pjStatus"><?= te('상태') ?></label>

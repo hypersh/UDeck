@@ -33,6 +33,19 @@ function tools_all(bool $activeOnly = false): array
     return udeck_db()->query($sql)->fetchAll();
 }
 
+/** 도구 아이콘 기본 이름: 코드·이름으로 판단, 해당 없으면 이름 앞 12자 */
+function tool_short_default(string $code, string $name): string
+{
+    $s = strtolower($code . ' ' . $name);
+    if (strpos($s, 'codex') !== false)                                       { return 'Codex'; }
+    if (preg_match('/claude[\s_\-]*code/', $s))                            { return 'Claude C'; }
+    if (strpos($s, 'claude') !== false)                                      { return 'Claude'; }
+    if (strpos($s, 'gpt') !== false)                                         { return 'GPT'; }
+    if (strpos($s, 'gemini') !== false)                                      { return 'Gemini'; }
+    if (strpos($s, 'antigravity') !== false)                                 { return 'Antigravity'; }
+    return mb_substr(trim($name) !== '' ? trim($name) : $code, 0, 12);
+}
+
 function ws_by_code(string $code): ?array
 {
     $st = udeck_db()->prepare('SELECT * FROM workspaces WHERE code = ?');
@@ -72,24 +85,55 @@ function board_data(bool $includeDone = false): array
 
     $tools = tools_all();
 
-    // 매트릭스: (PC, 도구)별 최신 기록 1건
-    $cells = $db->query('SELECT a.*, p.name AS project_name
-        FROM activities a
-        LEFT JOIN projects p ON p.id = a.project_id
-        WHERE a.id IN (
-            SELECT (SELECT id FROM activities x
-                    WHERE x.workspace_id = c.workspace_id AND x.tool_id = c.tool_id
-                    ORDER BY x.last_active_at DESC, x.id DESC LIMIT 1)
-            FROM (SELECT DISTINCT workspace_id, tool_id FROM activities) c
-        )')->fetchAll();
+    // 작업공간 판: (PC, 프로젝트)별 묶음. 프로젝트가 없는 기록은 PC마다 '미분류' 하나로 묶는다.
+    // 완료·보관 프로젝트는 빼고, 미분류는 최근 14일 기록만 보여 준다.
+    $rows = $db->query("SELECT a.id, a.workspace_id, a.tool_id, a.project_id, a.source, a.stage, a.title,
+            a.summary, a.last_prompt, a.cwd, a.progress, a.last_active_at, p.name AS project_name
+        FROM activities a LEFT JOIN projects p ON p.id = a.project_id
+        WHERE (a.project_id IS NOT NULL AND p.status IN ('active','paused'))
+           OR (a.project_id IS NULL AND a.last_active_at >= datetime('now', '+9 hours', '-14 days'))
+        ORDER BY a.last_active_at DESC, a.id DESC")->fetchAll();
+    $groups = [];
+    foreach ($rows as $r) {
+        $k = $r['workspace_id'] . '|' . (int)$r['project_id'];
+        if (!isset($groups[$k])) {
+            $groups[$k] = [
+                'key'            => $k,
+                'workspace_id'   => (int)$r['workspace_id'],
+                'project_id'     => $r['project_id'] ? (int)$r['project_id'] : null,
+                'project_name'   => $r['project_name'],
+                'last_active_at' => $r['last_active_at'],
+                'summary'        => $r['summary'] ?: ($r['title'] ?: $r['last_prompt']),
+                'stage'          => $r['stage'],
+                'progress'       => null,
+                'tools'          => [],
+                'items'          => [],
+                'count'          => 0,
+            ];
+        }
+        $g = &$groups[$k];
+        $g['count']++;
+        if ($g['progress'] === null && $r['progress'] !== null) {
+            $g['progress'] = (int)$r['progress'];
+        }
+        $tid = (int)$r['tool_id'];
+        if (!in_array($tid, $g['tools'], true)) {
+            $g['tools'][] = $tid;
+            if (count($g['items']) < 6) {
+                $g['items'][] = $r;          // 도구별 최신 기록
+            }
+        }
+        unset($g);
+    }
 
-    // 7일 활동 막대
+    // 7일 활동 막대 (PC, 프로젝트별)
     $env = [];
-    $st = $db->query("SELECT workspace_id, tool_id, at FROM activity_events
-        WHERE at >= datetime('now', '+9 hours', '-7 days')");
+    $st = $db->query("SELECT e.workspace_id, a.project_id, e.at FROM activity_events e
+        JOIN activities a ON a.id = e.activity_id
+        WHERE e.at >= datetime('now', '+9 hours', '-7 days')");
     $nowTs = strtotime($now);
     foreach ($st as $r) {
-        $k   = $r['workspace_id'] . '|' . $r['tool_id'];
+        $k   = $r['workspace_id'] . '|' . (int)$r['project_id'];
         $age = ($nowTs - strtotime($r['at'])) / 3600;
         $idx = UDECK_ENV_BUCKETS - 1 - (int)floor($age / UDECK_ENV_HOURS);
         if ($idx < 0 || $idx >= UDECK_ENV_BUCKETS) {
@@ -98,34 +142,32 @@ function board_data(bool $includeDone = false): array
         $env[$k] = $env[$k] ?? array_fill(0, UDECK_ENV_BUCKETS, 0);
         $env[$k][$idx]++;
     }
-    foreach ($cells as &$c) {
-        $c['env'] = $env[$c['workspace_id'] . '|' . $c['tool_id']] ?? array_fill(0, UDECK_ENV_BUCKETS, 0);
+    foreach ($groups as $k => &$g) {
+        $g['env'] = $env[$k] ?? array_fill(0, UDECK_ENV_BUCKETS, 0);
     }
-    unset($c);
+    unset($g);
+    $pcproj = array_values($groups);
 
-    // 프로젝트
+    // 프로젝트 (화면에서 등록순, 마감일순, 중요도순으로 정렬한다)
     $where = $includeDone ? '' : "WHERE status IN ('active','paused')";
-    $projects = $db->query("SELECT * FROM projects {$where}
-        ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END,
-                 priority, CASE WHEN due_date IS NULL THEN 1 ELSE 0 END, due_date,
-                 CASE due_type WHEN 'fixed' THEN 0 ELSE 1 END, sort_order, id")->fetchAll();
-    $hopSt = $db->prepare('SELECT workspace_id, tool_id, stage, last_active_at
-        FROM activities WHERE project_id = ? ORDER BY last_active_at ASC, id ASC');
+    $projects = $db->query("SELECT * FROM projects {$where} ORDER BY sort_order, id")->fetchAll();
+    $actSt = $db->prepare('SELECT workspace_id, tool_id, progress, last_active_at
+        FROM activities WHERE project_id = ? ORDER BY last_active_at DESC, id DESC');
     foreach ($projects as &$p) {
-        $hopSt->execute([$p['id']]);
-        $hops = [];
-        foreach ($hopSt as $a) {
-            $last = end($hops);
-            if ($last && $last['workspace_id'] == $a['workspace_id'] && $last['tool_id'] == $a['tool_id']) {
-                $hops[key($hops)]['stage'] = $a['stage'] ?: $last['stage'];
-                $hops[key($hops)]['at']    = $a['last_active_at'];
-                continue;
-            }
-            $hops[] = ['workspace_id' => (int)$a['workspace_id'], 'tool_id' => (int)$a['tool_id'],
-                       'stage' => $a['stage'], 'at' => $a['last_active_at']];
+        $actSt->execute([$p['id']]);
+        $wsIds = $toolIds = [];
+        $prog = null;
+        $last = null;
+        foreach ($actSt as $a) {
+            $last = $last ?? $a['last_active_at'];
+            if (!in_array((int)$a['workspace_id'], $wsIds, true)) { $wsIds[] = (int)$a['workspace_id']; }
+            if (!in_array((int)$a['tool_id'], $toolIds, true))    { $toolIds[] = (int)$a['tool_id']; }
+            if ($prog === null && $a['progress'] !== null)         { $prog = (int)$a['progress']; }
         }
-        $p['hops']    = array_slice($hops, -4);
-        $p['last_at'] = $hops ? end($hops)['at'] : null;
+        $p['ws_ids']   = $wsIds;     // 최근에 작업한 PC가 앞
+        $p['tool_ids'] = $toolIds;   // 최근에 쓴 도구가 앞
+        $p['progress'] = $prog;      // 가장 최근에 적은 진행률
+        $p['last_at']  = $last;
     }
     unset($p);
 
@@ -154,7 +196,7 @@ function board_data(bool $includeDone = false): array
         'now'        => $now,
         'workspaces' => $workspaces,
         'tools'      => $tools,
-        'cells'      => $cells,
+        'pcproj'     => $pcproj,
         'projects'   => $projects,
         'feed'       => $feed,
         'google'     => [
@@ -249,6 +291,15 @@ function activity_event(int $activityId, int $wsId, int $toolId, ?string $at = n
         ->execute([$activityId, $wsId, $toolId, $at]);
 }
 
+/** 진행률: 0~100 정수, 비어 있으면 null */
+function progress_val($v): ?int
+{
+    if ($v === null || $v === '') {
+        return null;
+    }
+    return max(0, min(100, (int)round((float)$v)));
+}
+
 /** 보드에서 직접 입력한 기록 저장. 반환: 기록 id */
 function activity_save_manual(array $in): int
 {
@@ -263,6 +314,7 @@ function activity_save_manual(array $in): int
     $cwd     = clean($in['cwd'] ?? null, 500);
     $next    = clean($in['next_action'] ?? null, 300);
     $at      = to_kst($in['at'] ?? null) ?? udeck_now();
+    $prog    = progress_val($in['progress'] ?? null);
 
     if (!row_exists('workspaces', $wsId))  { json_fail('PC를 선택하세요.'); }
     if (!row_exists('tools', $toolId))     { json_fail('도구를 선택하세요.'); }
@@ -280,15 +332,15 @@ function activity_save_manual(array $in): int
                 json_fail('기록을 찾을 수 없습니다.', 404);
             }
             $db->prepare('UPDATE activities SET workspace_id=?, tool_id=?, project_id=?, stage=?, title=?,
-                    summary=?, cwd=?, last_active_at=? WHERE id=?')
-                ->execute([$wsId, $toolId, $projId, $stage, $title, $summary, $cwd, $at, $id]);
+                    summary=?, cwd=?, progress=?, last_active_at=? WHERE id=?')
+                ->execute([$wsId, $toolId, $projId, $stage, $title, $summary, $cwd, $prog, $at, $id]);
             $db->prepare('UPDATE activity_events SET workspace_id=?, tool_id=? WHERE activity_id=?')
                 ->execute([$wsId, $toolId, $id]);
         } else {
             $db->prepare("INSERT INTO activities (workspace_id, tool_id, project_id, source, stage, title,
-                    summary, cwd, turn_count, started_at, last_active_at)
-                    VALUES (?, ?, ?, 'manual', ?, ?, ?, ?, 1, ?, ?)")
-                ->execute([$wsId, $toolId, $projId, $stage, $title, $summary, $cwd, $at, $at]);
+                    summary, cwd, progress, turn_count, started_at, last_active_at)
+                    VALUES (?, ?, ?, 'manual', ?, ?, ?, ?, ?, 1, ?, ?)")
+                ->execute([$wsId, $toolId, $projId, $stage, $title, $summary, $cwd, $prog, $at, $at]);
             $id = (int)$db->lastInsertId();
             activity_event($id, $wsId, $toolId, $at);
         }
@@ -394,6 +446,7 @@ function project_save(array $in): int
             $slug = $base . '-' . $n++;
         }
         $vals['slug'] = $slug;
+        $vals['sort_order'] = (int)$db->query('SELECT COALESCE(MAX(sort_order), 0) + 1 FROM projects')->fetchColumn();
         $cols = implode(', ', array_keys($vals));
         $ph   = ':' . implode(', :', array_keys($vals));
         $db->prepare("INSERT INTO projects ($cols) VALUES ($ph)")->execute($vals);
@@ -410,6 +463,34 @@ function project_save(array $in): int
         }
     }
     return $id;
+}
+
+/**
+ * 중요도 순서 바꾸기. ids: 화면에 보이는 프로젝트를 새 순서대로.
+ * 보이지 않는(완료·보관) 프로젝트의 자리는 그대로 두고, 보이는 프로젝트들이 차지하던 자리만 새 순서로 채운다.
+ */
+function project_reorder(array $ids): void
+{
+    $db  = udeck_db();
+    $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+    if (!$ids) {
+        return;
+    }
+    $all = $db->query('SELECT id FROM projects ORDER BY sort_order, id')->fetchAll(PDO::FETCH_COLUMN);
+    $all = array_map('intval', $all);
+    $set = array_flip($ids);
+    $ids = array_values(array_filter($ids, fn($i) => in_array($i, $all, true)));
+    $out = [];
+    $k = 0;
+    foreach ($all as $id) {
+        $out[] = isset($set[$id]) ? ($ids[$k++] ?? $id) : $id;
+    }
+    $up = $db->prepare('UPDATE projects SET sort_order = ? WHERE id = ?');
+    $db->beginTransaction();
+    foreach ($out as $i => $id) {
+        $up->execute([$i + 1, $id]);
+    }
+    $db->commit();
 }
 
 function project_delete(int $id): void
@@ -528,6 +609,7 @@ function ingest_activity(array $token, array $in): array
         'meta_json'   => isset($in['meta']) ? json_encode($in['meta'], JSON_UNESCAPED_UNICODE) : null,
     ];
     $turns = int_or_null($in['turn_count'] ?? null);
+    $prog  = progress_val($in['progress'] ?? null);
 
     $db->beginTransaction();
     try {
@@ -540,19 +622,19 @@ function ingest_activity(array $token, array $in): array
                     project_id = ?, source = ?, cwd = COALESCE(?, cwd),
                     title = COALESCE(?, title), summary = COALESCE(?, summary),
                     last_prompt = COALESCE(?, last_prompt), stage = COALESCE(?, stage),
-                    meta_json = COALESCE(?, meta_json),
+                    meta_json = COALESCE(?, meta_json), progress = COALESCE(?, progress),
                     turn_count = COALESCE(?, turn_count + 1), last_active_at = ?, ended_at = NULL
                 WHERE id = ?')
                 ->execute([$projId, $source, $cwd, $f['title'], $f['summary'], $f['last_prompt'], $f['stage'],
-                           $f['meta_json'], $turns, $at, $row['id']]);
+                           $f['meta_json'], $prog, $turns, $at, $row['id']]);
             $id = (int)$row['id'];
         } else {
             $projId = project_match_cwd($cwd);
             $db->prepare('INSERT INTO activities (workspace_id, tool_id, project_id, session_key, source, cwd,
-                    title, summary, last_prompt, stage, meta_json, turn_count, started_at, last_active_at)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+                    title, summary, last_prompt, stage, meta_json, progress, turn_count, started_at, last_active_at)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
                 ->execute([$ws['id'], $tool['id'], $projId, $key, $source, $cwd, $f['title'], $f['summary'],
-                           $f['last_prompt'], $f['stage'], $f['meta_json'], $turns ?? 1,
+                           $f['last_prompt'], $f['stage'], $f['meta_json'], $prog, $turns ?? 1,
                            to_kst($in['started_at'] ?? null) ?? $at, $at]);
             $id = (int)$db->lastInsertId();
         }

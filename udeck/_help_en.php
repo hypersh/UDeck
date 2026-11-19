@@ -96,20 +96,23 @@
         <li>A proverb or a short line appears at the bottom.</li>
         <li>It recalculates every 15 minutes. Click Refresh to recalculate now and change the line.</li>
       </ul>
-      <h3>Workspace matrix</h3>
+      <h3>Workspaces</h3>
       <ul>
-        <li>Rows are PCs and columns are tools. Tools with records come first, then desktop tools without records. Each cell shows the most recent work for that PC and tool.</li>
-        <li>Up to 3 tools are visible at a time. If there are more, use the ◀ ▶ buttons next to the title (or scroll sideways). The PC name column stays in place.</li>
+        <li>Rows are workspaces (PCs or people). The boxes to the right are the projects worked on in that workspace, most recent first. A project worked on in several PCs appears in each of their rows.</li>
+        <li>Each box shows the project name, the latest work, the tools used (short-name icons such as Codex, GPT, Claude, Claude C, Gemini, Antigravity), progress (bar and %), the time of the last work and a 7-day activity strip. Records from the last 14 days with no project are grouped in an "Unassigned" box.</li>
+        <li>If the boxes do not fit, use the ◀ ▶ buttons next to the title (or scroll sideways). The PC name column stays in place.</li>
         <li>The more recent the work, the stronger the color (half-life of 3 hours). Work within the last hour shows its time in the PC's color.</li>
-        <li>The small bars at the bottom right show activity over the last 7 days (three slots per day).</li>
-        <li>Click a cell to open details: continue logging, edit the record, copy the folder path, open Remote Desktop, or assign a project.</li>
-        <li>Click an empty cell to open the log form with that PC and tool already selected.</li>
+        <li>Click a box to open details: the latest record for each tool with Edit, Continue logging, Copy folder path, Open Remote Desktop and project assignment.</li>
+        <li>For a PC with no records, click its empty box to add one.</li>
       </ul>
       <h3>Projects</h3>
       <ul>
+        <li>Columns: rank (#), project, devices (PCs that worked on it; bold is the most recent), tools, progress, next step and deadline.</li>
+        <li>Sort by importance, deadline or date added. Your choice is remembered in this browser.</li>
+        <li>When sorted by importance, drag the number on the left up or down to change the order. You can also focus the number and use the up and down arrow keys. In every sort order, the number shows the importance rank.</li>
+        <li>Progress is the most recent value entered in the project's work records.</li>
         <li>Click a row to edit. Setting the status to "Done" hides it; check "Show done" to see it again.</li>
-        <li>The work flow shows, automatically, the order of PCs and tools that appear in the project's records. The last step is where the project is now.</li>
-        <li>The main workspace is the PC where you mostly work on the project, shown as a colored dot under its name.</li>
+        <li>The main workspace is the PC where you mostly work on the project, shown under its name as "main: PC name".</li>
         <li>Choose one of three deadline types: No deadline; Self-set (a target date you chose, ochre D-day); Fixed deadline (a date you must meet, such as a submission deadline, red D-day pill). Fixed deadlines also appear under Urgent in the AI assistant from 14 days before.</li>
       </ul>
       <h3>Recent records</h3>
@@ -120,7 +123,8 @@
     <section id="records">
       <h2>4. Work records</h2>
       <h3>Manual entry</h3>
-      <p>Click "Add work log" at the top. Enter the PC, tool, project, stage, what you did, next step, work folder and time. A next step you enter also becomes the project's next step.</p>
+      <p>Click "Add work log" at the top. Enter the PC, tool, project, stage, what you did, progress, next step, work folder and time. A next step you enter also becomes the project's next step.</p>
+      <p>Set progress by dragging the bar or typing a number (0 to 100). Choosing a project fills in its latest progress. Click "Clear" to record no progress.</p>
       <h3>Automatic vs. manual</h3>
       <table class="tbl">
         <thead><tr><th style="width:34%">Tool</th><th>How it is recorded</th></tr></thead>
@@ -141,7 +145,7 @@
           <tr><td><code>D:\Work</code></td><td><code>Work</code></td><td>Top-level project (does not take records of sub-projects)</td></tr>
         </tbody>
       </table>
-      <p>With no match, the record is "Unassigned". Assign a project once from the cell details and that folder name is saved to the project, so later records from the same folder are assigned automatically. Using only the folder name keeps projects matched even when paths differ between PCs.</p>
+      <p>With no match, the record is "Unassigned". Assign a project once from the details of the workspace's "Unassigned" box and that folder name is saved to the project, so later records from the same folder are assigned automatically. Using only the folder name keeps projects matched even when paths differ between PCs.</p>
     </section>
 
     <!-- 5 -->
@@ -212,7 +216,7 @@
         <li>In <a href="settings.php#h-token">Settings → Connection keys</a>, create a key named like <code>Laptop auto logging</code> with purpose <b>PC work logging</b> and that <b>PC</b> selected, then click <b>Copy key</b>. Create a separate key for each PC.</li>
         <li>Double-click <code>UDeck\agent\install.cmd</code>. It reads the key from the clipboard automatically.</li>
         <li>It runs a connection test, adds the Claude Code hook, registers the scheduled task, runs once and sends a test record.</li>
-        <li>If the test record appears in that PC's Claude Code cell on the board, it worked. Delete the test record via Edit → Delete in Recent records.</li>
+        <li>If the test record appears in that PC's row on the board (with the Claude C icon), it worked. Delete the test record via Edit → Delete in Recent records.</li>
         <li>Restart any open Claude Code app so automatic logging takes effect.</li>
       </ol>
 
@@ -271,8 +275,8 @@
         <thead><tr><th style="width:22%">Area</th><th>What you can do</th></tr></thead>
         <tbody>
           <tr><td>Language</td><td>Choose Korean or English. Applies to all devices.</td></tr>
-          <tr><td>Workspaces (PCs)</td><td>Change code, name, computer name, color, purpose and order. Add with the blank last row; tick "Delete" to remove. Deleting a PC also deletes its work records. If you change a code, update that PC's automatic logging settings too.</td></tr>
-          <tr><td>Tools</td><td>Add, delete, rename or recode. Only tools of type "Desktop app" with "Use" on become matrix columns. Web services and other tools are chosen in the log form only.</td></tr>
+          <tr><td>Workspaces (PCs or people)</td><td>Change code, name, computer name, color, purpose and order. A workspace can also be the person responsible for the work instead of a PC. Add with the blank last row; tick "Delete" to remove. Deleting a workspace also deletes its work records. If you change a code, update the automatic logging settings for that PC (or person) too.</td></tr>
+          <tr><td>Tools</td><td>Add, delete, rename or recode. Tools with "Use" on appear in the log form. In workspace boxes and the project list they appear with their icon label (up to 12 characters). If left blank, the label is set from the name (Codex, GPT, Claude, Claude C, Gemini or Antigravity), or the display name is used.</td></tr>
           <tr><td>Connection keys</td><td>Create and revoke keys for Apps Script (Google sync) and for PCs (PC work logging). A key is shown only right after it is created.</td></tr>
           <tr><td>Change password</td><td>Other devices must log in again afterwards.</td></tr>
           <tr><td>Received data log</td><td>The last 20 transmissions from automatic logging and Google sync. Check here first when something seems missing.</td></tr>
@@ -293,7 +297,7 @@
           <tr><td>A PC never shows "online"</td><td>In Task Scheduler, the last run result of "UDeck Agent" should be 0x0</td></tr>
           <tr><td>Connection failed, HTTP 401</td><td>The key is wrong or revoked. Create a new key, copy it, and run install.cmd again</td></tr>
           <tr><td>HTTP 403</td><td>Wrong key purpose. Google sync keys and PC work logging keys are not interchangeable</td></tr>
-          <tr><td>Work appears as "Unassigned"</td><td>Check the project's work folder name, or assign the project once from the cell details</td></tr>
+          <tr><td>Work appears as "Unassigned"</td><td>Check the project's work folder name, or assign the project once from the details of the "Unassigned" box</td></tr>
           <tr><td>HANDOFF.md is not reflected</td><td>Is it inside a watch folder (<code>watch</code>)? Does the folder name match a project?</td></tr>
           <tr><td>"The server could not process this"</td><td>Check <code>udeck_private/data/php_error.log</code> on the server</td></tr>
           <tr><td>Keeps logging out</td><td>Tick "Keep me logged in" when logging in; check the <code>udeck_private/sessions</code> folder on the server</td></tr>

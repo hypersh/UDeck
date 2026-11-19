@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2 (2026-11-19)
+
+- **Workspaces by project.** Each workspace row now shows one box per project worked on there (most recent first) instead of one column per tool. A box shows the project, latest work, the tools used as short-name icons, progress (bar and %), the last time and a 7-day strip. The same project appears in every workspace where it was worked on. ◀ ▶ scroll when the boxes do not fit
+- **Progress.** Work records have an optional progress value (0 to 100), entered with a slider or a number. The ingest API accepts `progress` too
+- **Project list.** New columns: rank, devices, tools and progress (replacing the work flow). Sort by importance, deadline or date added. Importance is set by dragging the rank number (or with the arrow keys)
+- Tool icons show a short label (Codex, GPT, Claude, Claude C, Gemini, Antigravity, or your own), editable as "Icon label" in Settings
+- Workspaces can be PCs or people; the settings wording changed accordingly
+- The priority field (high, normal, low) was removed from the project form; the importance order replaces it
+- Database schema version 6 (adds `activities.progress` and `tools.short_name`; fills `projects.sort_order` from the old priority and creation order)
+
 ## 1.1 (2026-11-19)
 
 - The three columns are now named **List board** (schedule, tasks, mail), **Status board** (workspaces, projects, recent records) and **Black board** (notes, AI assistant)

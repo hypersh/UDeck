@@ -84,8 +84,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $up  = $db->prepare('UPDATE workspaces SET code=?, name=?, device_name=?, role_note=?, color=?, sort_order=? WHERE id=?');
                 $ins = $db->prepare('INSERT INTO workspaces (code, name, device_name, role_note, color, sort_order) VALUES (?,?,?,?,?,?)');
             } else {
-                $up  = $db->prepare('UPDATE tools SET code=?, name=?, kind=?, is_active=?, sort_order=? WHERE id=?');
-                $ins = $db->prepare('INSERT INTO tools (code, name, kind, is_active, sort_order) VALUES (?,?,?,?,?)');
+                $up  = $db->prepare('UPDATE tools SET code=?, name=?, short_name=?, kind=?, is_active=?, sort_order=? WHERE id=?');
+                $ins = $db->prepare('INSERT INTO tools (code, name, short_name, kind, is_active, sort_order) VALUES (?,?,?,?,?,?)');
             }
             foreach ($rows as $key => $r) {
                 if (!empty($r['delete'])) {
@@ -102,7 +102,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                              clean($r['role_note'] ?? null, 120), $color, $order];
                 } else {
                     $kind = in_array($r['kind'] ?? '', ['desktop', 'web', 'other'], true) ? $r['kind'] : 'desktop';
-                    $vals = [$code, clean($r['name'] ?? null, 30), $kind, !empty($r['active']) ? 1 : 0, $order];
+                    $nm   = clean($r['name'] ?? null, 30);
+                    $vals = [$code, $nm, clean($r['short_name'] ?? null, 12) ?? tool_short_default($code, (string)$nm),
+                             $kind, !empty($r['active']) ? 1 : 0, $order];
                 }
                 if ($key === 'new') {
                     $ins->execute($vals);
@@ -199,9 +201,9 @@ page_head('UDeck ' . t('설정'));
   </section>
 
   <section class="sec" aria-labelledby="h-ws">
-    <div class="sec-h"><h2 id="h-ws"><?= te('작업공간(PC)') ?></h2><span class="sub"><?= te('작업공간 매트릭스의 행이 됩니다') ?></span></div>
+    <div class="sec-h"><h2 id="h-ws"><?= te('작업공간(PC 또는 담당자)') ?></h2><span class="sub"><?= te('현황판 작업공간의 행이 됩니다') ?></span></div>
     <div class="sec-b">
-      <p><?= te('코드는 자동 기록이 PC를 구분하는 이름입니다. 영문 소문자, 숫자, _, - 만 쓸 수 있습니다. 코드를 바꾸면 그 PC의 자동 기록 설정에 적은 값도 함께 바꿔야 합니다.') ?></p>
+      <p><?= te('작업공간은 작업이 이루어지는 PC나 그 일을 맡은 사람입니다. 코드는 자동 기록이 PC(또는 담당자)를 구분하는 이름으로, 영문 소문자, 숫자, _, - 만 쓸 수 있습니다. 코드를 바꾸면 그 PC(또는 담당자)의 자동 기록 설정에 적은 값도 함께 바꿔야 합니다.') ?></p>
       <form method="post" class="cfg-form" data-what="PC">
         <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
         <input type="hidden" name="act" value="workspaces">
@@ -225,7 +227,7 @@ page_head('UDeck ' . t('설정'));
             <tr class="new-row">
               <td><input class="input" type="number" name="row[new][sort_order]" value="<?= count($workspaces) + 1 ?>"></td>
               <td><input class="input" name="row[new][code]" maxlength="30" pattern="[a-z0-9][a-z0-9_\-]{0,29}" placeholder="<?= te('예: lab') ?>"></td>
-              <td><input class="input" name="row[new][name]" maxlength="30" placeholder="<?= te('새 PC 이름') ?>"></td>
+              <td><input class="input" name="row[new][name]" maxlength="30" placeholder="<?= te('새 PC 또는 담당자') ?>"></td>
               <td><input class="input" name="row[new][device_name]" maxlength="60"></td>
               <td><select class="select" name="row[new][color]">
                 <?php $used = array_column($workspaces, 'color'); $next = array_values(array_diff(array_keys(UDECK_COLORS), $used))[0] ?? 'slate';
@@ -243,21 +245,22 @@ page_head('UDeck ' . t('설정'));
   </section>
 
   <section class="sec" aria-labelledby="h-tools">
-    <div class="sec-h"><h2 id="h-tools"><?= te('도구') ?></h2><span class="sub"><?= te('데스크톱 앱 중 사용하는 것이 작업공간 매트릭스의 열이 됩니다') ?></span></div>
+    <div class="sec-h"><h2 id="h-tools"><?= te('도구') ?></h2><span class="sub"><?= te('사용 중인 도구가 작업 기록 창에 나옵니다') ?></span></div>
     <div class="sec-b">
-      <p><?= te('웹 서비스와 기타 도구는 매트릭스에 열로 나오지 않고, 작업 기록을 남길 때 선택할 수 있습니다. "사용"을 끄면 기록 창에서도 숨겨집니다.') ?></p>
+      <p><?= te('아이콘 이름은 작업공간 박스와 프로젝트 목록의 도구 아이콘에 보이는 짧은 이름입니다(12자 이내). 비워 두면 이름에 맞춰 Codex, GPT, Claude, Claude C, Gemini, Antigravity 중 하나로 정해집니다. "사용"을 끄면 기록 창에서 숨겨집니다.') ?></p>
       <form method="post" class="cfg-form" data-what="<?= te('도구') ?>">
         <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
         <input type="hidden" name="act" value="tools">
         <div style="overflow-x:auto">
         <table class="tbl">
-          <thead><tr><th style="width:64px"><?= te('순서') ?></th><th><?= te('코드') ?></th><th><?= te('표시 이름') ?></th><th style="width:140px"><?= te('종류') ?></th><th style="width:70px"><?= te('사용') ?></th><th style="width:60px"><?= te('삭제') ?></th></tr></thead>
+          <thead><tr><th style="width:64px"><?= te('순서') ?></th><th><?= te('코드') ?></th><th><?= te('표시 이름') ?></th><th style="width:130px"><?= te('아이콘 이름') ?></th><th style="width:140px"><?= te('종류') ?></th><th style="width:84px"><?= te('사용') ?></th><th style="width:60px"><?= te('삭제') ?></th></tr></thead>
           <tbody>
           <?php foreach ($tools as $t): $k = (int)$t['id']; ?>
             <tr>
               <td><input class="input" type="number" name="row[<?= $k ?>][sort_order]" value="<?= (int)$t['sort_order'] ?>"></td>
               <td><input class="input" name="row[<?= $k ?>][code]" value="<?= e($t['code']) ?>" maxlength="30" pattern="[a-z0-9][a-z0-9_\-]{0,29}" required></td>
               <td><input class="input" name="row[<?= $k ?>][name]" value="<?= e($t['name']) ?>" maxlength="30" required></td>
+              <td><input class="input" name="row[<?= $k ?>][short_name]" value="<?= e($t['short_name'] ?? '') ?>" maxlength="12" placeholder="<?= e(tool_short_default($t['code'], $t['name'])) ?>"></td>
               <td><select class="select" name="row[<?= $k ?>][kind]">
                 <?php foreach ($kindName as $kk => $kn): ?><option value="<?= $kk ?>" <?= $t['kind'] === $kk ? 'selected' : '' ?>><?= e($kn) ?></option><?php endforeach; ?>
               </select></td>
@@ -269,6 +272,7 @@ page_head('UDeck ' . t('설정'));
               <td><input class="input" type="number" name="row[new][sort_order]" value="<?= count($tools) + 1 ?>"></td>
               <td><input class="input" name="row[new][code]" maxlength="30" pattern="[a-z0-9][a-z0-9_\-]{0,29}" placeholder="<?= te('예: perplexity') ?>"></td>
               <td><input class="input" name="row[new][name]" maxlength="30" placeholder="<?= te('새 도구 이름') ?>"></td>
+              <td><input class="input" name="row[new][short_name]" maxlength="12" placeholder="<?= te('자동') ?>"></td>
               <td><select class="select" name="row[new][kind]"><?php foreach ($kindName as $kk => $kn): ?><option value="<?= $kk ?>"><?= e($kn) ?></option><?php endforeach; ?></select></td>
               <td><label class="check"><input type="checkbox" name="row[new][active]" value="1" checked> <?= te('사용') ?></label></td>
               <td class="muted"><?= te('추가') ?></td>

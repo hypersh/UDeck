@@ -24,6 +24,7 @@ Sending again with the same PC, tool and `session_key` updates the existing reco
 | `session_key` | yes | Session ID of the tool |
 | `cwd` | | Work folder. Matched against projects' work folder names, innermost folder first |
 | `summary` | | Progress summary (up to 1,000 characters) |
+| `progress` | | Progress in percent, 0 to 100. Kept when later updates omit it |
 | `last_prompt` | | Last request (up to 500 characters) |
 | `title`, `stage` | | Title and stage name |
 | `next_action` | | Becomes the project's next step |

@@ -79,6 +79,20 @@ function udeck_migrate(PDO $pdo): void
         // v4: 마감 종류 (none: 마감 없음, self: 자체 마감, fixed: 정해진 제출기한)
         4 => "ALTER TABLE projects ADD COLUMN due_type TEXT NOT NULL DEFAULT 'none';
               UPDATE projects SET due_type = CASE WHEN due_date IS NULL OR due_date = '' THEN 'none' ELSE 'self' END;",
+        // v5: 작업 기록의 진행률(0~100), 프로젝트 중요도 순서(sort_order)를 기존 우선순위·등록순으로 채움
+        5 => "ALTER TABLE activities ADD COLUMN progress INTEGER;
+              UPDATE projects SET sort_order = (SELECT COUNT(*) FROM projects q
+                  WHERE q.priority < projects.priority OR (q.priority = projects.priority AND q.id <= projects.id));",
+        // v6: 도구 아이콘에 보일 짧은 이름 (Codex, GPT, Claude, Claude C, Gemini, Antigravity 등)
+        6 => "ALTER TABLE tools ADD COLUMN short_name TEXT;
+              UPDATE tools SET short_name = CASE
+                  WHEN lower(code || ' ' || name) LIKE '%codex%' THEN 'Codex'
+                  WHEN lower(code || ' ' || name) LIKE '%claude%code%' OR lower(code || ' ' || name) LIKE '%claude_code%' THEN 'Claude C'
+                  WHEN lower(code || ' ' || name) LIKE '%claude%' THEN 'Claude'
+                  WHEN lower(code || ' ' || name) LIKE '%gpt%' THEN 'GPT'
+                  WHEN lower(code || ' ' || name) LIKE '%gemini%' THEN 'Gemini'
+                  WHEN lower(code || ' ' || name) LIKE '%antigravity%' THEN 'Antigravity'
+                  ELSE substr(name, 1, 12) END;",
     ];
     foreach ($migrations as $ver => $sql) {
         if ($ver <= $current) {

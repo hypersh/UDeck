@@ -25,7 +25,7 @@
     range: 'days',         // 일정 탭: days | week | month
     taskList: '',          // 할 일 목록 필터
     showDone: false,
-    openCell: null,        // 펼친 매트릭스 칸 'wsId|toolId'
+    openCell: null,        // 펼친 작업공간 칸 'wsId|projectId'
     loading: false,
   };
 
@@ -128,12 +128,6 @@
   const wsById = id => state.data.workspaces.find(w => +w.id === +id);
   const toolById = id => state.data.tools.find(t => +t.id === +id);
   const projById = id => state.data.projects.find(p => +p.id === +id);
-  // 매트릭스 열: 기록이 있는 도구를 앞에, 그다음 기록이 없는 데스크톱 도구
-  const matrixTools = () => {
-    const used = new Set(state.data.cells.map(c => +c.tool_id));
-    const ts = state.data.tools.filter(t => used.has(+t.id) || (+t.is_active === 1 && t.kind === 'desktop'));
-    return ts.filter(t => used.has(+t.id)).concat(ts.filter(t => !used.has(+t.id)));
-  };
 
   /* =====================================================================
      렌더링
@@ -296,36 +290,57 @@
     }).join('');
   }
 
+  /* ---------- 공통 표시 조각 ---------- */
+  // 도구 아이콘 이름: 설정의 '아이콘 이름', 비어 있으면 이름으로 판단 (Codex, GPT, Claude, Claude C, Gemini, Antigravity)
+  function toolAbbr(t) {
+    if (t.short_name) return t.short_name;
+    const s = (String(t.code || '') + ' ' + String(t.name || '')).toLowerCase();
+    if (s.includes('codex')) return 'Codex';
+    if (/claude[\s_\-]*code/.test(s)) return 'Claude C';
+    if (s.includes('claude')) return 'Claude';
+    if (s.includes('gpt')) return 'GPT';
+    if (s.includes('gemini')) return 'Gemini';
+    if (s.includes('antigravity')) return 'Antigravity';
+    return String(t.name || t.code || '?').trim().slice(0, 12);
+  }
+  const toolIcons = ids => (ids || []).map(toolById).filter(Boolean).map(t =>
+    '<span class="ticon" title="' + esc(t.name) + '"><span aria-hidden="true">' + esc(toolAbbr(t)) + '</span><span class="sr">' + esc(t.name) + '</span></span>').join('');
+  const progBar = v => (v === null || v === undefined || v === '')
+    ? '<span class="prog none">' + T('진행률 없음') + '</span>'
+    : '<span class="prog" title="' + T('진행률 {n}%', { n: +v }) + '"><span class="bar"><i style="width:' + Math.max(0, Math.min(100, +v)) + '%"></i></span><span class="pv">' + (+v) + '%</span></span>';
+
+  /* ---------- 현황판: 작업공간 (행: PC, 칸: 프로젝트) ---------- */
   function renderMatrix() {
-    const d = state.data, tools = matrixTools(), m = $('#matrix');
-    m.style.setProperty('--cols', Math.max(1, tools.length));
-    m.style.setProperty('--vis', Math.max(1, Math.min(3, tools.length)));
-    m.classList.toggle('compact', tools.length >= 3);
-    const cells = {};
-    d.cells.forEach(c => { cells[c.workspace_id + '|' + c.tool_id] = c; });
-    let h = '<div class="mx-corner"></div>' + tools.map(t => '<div class="mx-colh" title="' + esc(t.name) + '">' + esc(t.name) + '</div>').join('');
+    const d = state.data, m = $('#matrix');
+    const by = {};
+    d.pcproj.forEach(g => { (by[g.workspace_id] = by[g.workspace_id] || []).push(g); });
+    const maxN = Math.max(1, ...d.workspaces.map(w => (by[w.id] || []).length));
+    m.style.setProperty('--cols', maxN);
+    let h = '';
     d.workspaces.forEach(w => {
       const seen = w.last_seen_at && minsAgo(w.last_seen_at) < 20;
       const last = [w.last_seen_at, w.last_activity_at].filter(Boolean).sort().pop();
       const st = seen ? '<i class="dot ok"></i>' + T('접속 중') : last ? '<i class="dot ' + (minsAgo(last) < 1440 ? 'stale' : 'off') + '"></i>' + esc(ago(last)) : '<i class="dot off"></i>' + T('기록 없음');
       h += '<div class="mx-rowh" style="--pc:' + pcVar(w) + '"><span class="nm">' + esc(w.name) + '</span>' +
         '<span class="st">' + st + '</span>' + (w.role_note ? '<span class="role">' + esc(w.role_note) + '</span>' : '') + '</div>';
-      tools.forEach(t => {
-        const key = w.id + '|' + t.id, c = cells[key];
-        if (!c) {
-          h += '<button type="button" class="cell empty" data-new="' + key + '" data-tool="' + esc(t.name) + '" style="--pc:' + pcVar(w) + ';--heat:0">' +
-            '<span class="sum">' + T('기록 없음. 눌러서 추가') + '</span></button>';
-          return;
-        }
-        const env = (c.env || []);
+      const gs = by[w.id] || [];
+      if (!gs.length) {
+        h += '<button type="button" class="cell empty" data-new="' + w.id + '" style="--pc:' + pcVar(w) + ';--heat:0">' +
+          '<span class="sum">' + T('기록 없음. 눌러서 추가') + '</span></button>';
+        return;
+      }
+      gs.forEach(g => {
+        const env = g.env || [];
         const mx = Math.max(1, ...env);
-        const bars = env.map(v => '<i style="height:' + Math.max(1, Math.round(v / mx * 18)) + 'px"></i>').join('');
-        const hot = minsAgo(c.last_active_at) < 60;
-        h += '<button type="button" class="cell" data-key="' + key + '" data-tool="' + esc(t.name) + '" aria-pressed="' + (state.openCell === key) + '"' +
-          ' style="--pc:' + pcVar(w) + ';--heat:' + heat(c.last_active_at).toFixed(2) + '">' +
-          '<span class="proj' + (c.project_name ? '' : ' none') + '">' + esc(c.project_name || T('미분류')) + '</span>' +
-          '<span class="sum">' + esc(c.summary || c.title || c.last_prompt || '') + '</span>' +
-          '<span class="meta"><span class="ago' + (hot ? ' hot' : '') + '">' + esc(ago(c.last_active_at)) + '</span>' +
+        const bars = env.map(v => '<i style="height:' + Math.max(1, Math.round(v / mx * 14)) + 'px"></i>').join('');
+        const hot = minsAgo(g.last_active_at) < 60;
+        h += '<button type="button" class="cell" data-key="' + g.key + '" aria-pressed="' + (state.openCell === g.key) + '"' +
+          ' style="--pc:' + pcVar(w) + ';--heat:' + heat(g.last_active_at).toFixed(2) + '">' +
+          '<span class="proj' + (g.project_id ? '' : ' none') + '">' + esc(g.project_name || T('미분류')) + '</span>' +
+          '<span class="sum">' + esc(g.summary || '') + '</span>' +
+          '<span class="tl">' + toolIcons(g.tools) + '</span>' +
+          progBar(g.progress) +
+          '<span class="meta"><span class="ago' + (hot ? ' hot' : '') + '">' + esc(ago(g.last_active_at)) + '</span>' +
           '<span class="env" title="' + T('최근 7일 활동') + '">' + bars + '</span></span></button>';
       });
     });
@@ -334,10 +349,10 @@
     updateMxNav();
   }
 
-  /* 도구가 3개를 넘으면 ◀ ▶ 버튼으로 옆으로 넘겨 본다 */
+  /* 칸이 넘치면 ◀ ▶ 버튼으로 옆으로 넘겨 본다 */
   function mxStep() {
-    const c = $('#matrix .mx-colh');
-    return c ? c.getBoundingClientRect().width + 6 : 200;
+    const c = $('#matrix .cell');
+    return c ? c.getBoundingClientRect().width + 6 : 180;
   }
   function updateMxNav() {
     const sc = $('#mxScroll'), nav = $('#mxNav');
@@ -348,50 +363,72 @@
     $('#mxNext').disabled = sc.scrollLeft >= sc.scrollWidth - sc.clientWidth - 2;
   }
 
+  const openGroup = () => state.openCell && state.data.pcproj.find(x => x.key === state.openCell);
+
   function renderDetail() {
     const box = $('#detail');
-    const key = state.openCell;
-    const c = key && state.data.cells.find(x => x.workspace_id + '|' + x.tool_id === key);
-    if (!c) { box.hidden = true; state.openCell = null; return; }
-    const w = wsById(c.workspace_id), t = toolById(c.tool_id), p = c.project_id && projById(c.project_id);
+    const g = openGroup();
+    if (!g) { box.hidden = true; state.openCell = null; return; }
+    const w = wsById(g.workspace_id), p = g.project_id && projById(g.project_id);
+    const it = g.items[0] || {};
     box.style.setProperty('--pc', pcVar(w));
     const projOpts = '<option value="">' + T('미분류') + '</option>' + state.data.projects.map(x =>
-      '<option value="' + x.id + '"' + (+x.id === +c.project_id ? ' selected' : '') + '>' + esc(x.name) + '</option>').join('');
+      '<option value="' + x.id + '"' + (+x.id === +g.project_id ? ' selected' : '') + '>' + esc(x.name) + '</option>').join('');
+    const items = g.items.map(a => {
+      const t = toolById(a.tool_id);
+      return '<li>' + toolIcons([a.tool_id]) + '<div><div class="it-h"><b>' + esc(t ? t.name : '') + '</b>' +
+        (a.stage ? ' <span class="stage">' + esc(a.stage) + '</span>' : '') +
+        (a.progress !== null && a.progress !== undefined ? ' <span class="stage">' + (+a.progress) + '%</span>' : '') +
+        '<span class="when">' + esc(ago(a.last_active_at)) + '</span></div>' +
+        '<div class="it-s">' + esc(a.summary || a.title || a.last_prompt || '') + '</div></div>' +
+        '<button class="btn btn-text" type="button" data-act="edit" data-id="' + a.id + '">' + T('고치기') + '</button></li>';
+    }).join('');
     box.innerHTML =
-      '<div><h3>' + esc(c.project_name || T('미분류 작업')) + '</h3>' +
-      '<div class="ctx">' + T('{pc}의 {tool}, {ago} 마지막 기록', { pc: esc(w.name), tool: esc(t.name), ago: esc(ago(c.last_active_at)) }) + '</div>' +
-      (c.summary ? '<div>' + esc(c.summary) + '</div>' : '') +
-      (c.last_prompt ? '<div class="prompt">' + T('마지막 요청: ') + esc(c.last_prompt) + '</div>' : '') +
+      '<div><h3>' + esc(g.project_name || T('미분류 작업')) + '</h3>' +
+      '<div class="ctx">' + T('{pc}, {ago} 마지막 기록', { pc: esc(w.name), ago: esc(ago(g.last_active_at)) }) + '</div>' +
+      '<ul class="items">' + items + '</ul>' +
       (p && p.next_action ? '<div class="prompt">' + T('다음 할 일: ') + esc(p.next_action) + '</div>' : '') +
       '<div class="row-actions">' +
         '<button class="btn btn-ghost" type="button" data-act="continue">' + T('이어서 기록') + '</button>' +
-        '<button class="btn btn-ghost" type="button" data-act="edit">' + T('기록 고치기') + '</button>' +
-        (c.cwd ? '<button class="btn btn-ghost" type="button" data-act="copy">' + T('폴더 경로 복사') + '</button>' : '') +
+        (it.cwd ? '<button class="btn btn-ghost" type="button" data-act="copy">' + T('폴더 경로 복사') + '</button>' : '') +
         '<a class="btn btn-ghost" href="https://remotedesktop.google.com/access" target="_blank" rel="noopener">' + T('원격 데스크톱 열기') + '</a>' +
       '</div></div>' +
       '<dl>' +
         '<dt>' + T('프로젝트') + '</dt><dd><select class="select" data-act="assign" style="height:30px">' + projOpts + '</select></dd>' +
-        (c.cwd ? '<dt>' + T('작업 폴더') + '</dt><dd>' + esc(c.cwd) + '</dd>' : '') +
-        (c.stage ? '<dt>' + T('단계') + '</dt><dd>' + esc(c.stage) + '</dd>' : '') +
-        '<dt>' + T('대화 수') + '</dt><dd>' + T('{n}회', { n: +c.turn_count || 1 }) + '</dd>' +
-        '<dt>' + T('기록 방식') + '</dt><dd>' + esc(SRC[c.source] || c.source) + '</dd>' +
-        '<dt>' + T('시작') + '</dt><dd>' + esc(ago(c.started_at || c.created_at)) + '</dd>' +
+        '<dt>' + T('진행률') + '</dt><dd>' + progBar(g.progress) + '</dd>' +
+        '<dt>' + T('도구') + '</dt><dd>' + toolIcons(g.tools) + '</dd>' +
+        (it.cwd ? '<dt>' + T('작업 폴더') + '</dt><dd>' + esc(it.cwd) + '</dd>' : '') +
+        '<dt>' + T('기록 수') + '</dt><dd>' + T('{n}건', { n: g.count }) + '</dd>' +
       '</dl>';
     box.hidden = false;
+  }
+
+  /* ---------- 프로젝트 목록: 정렬과 중요도 순서 ---------- */
+  function projectRanks() {
+    const r = new Map();
+    state.data.projects.slice().sort((a, b) => (+a.sort_order - +b.sort_order) || (+a.id - +b.id))
+      .forEach((p, i) => r.set(+p.id, i + 1));
+    return r;
+  }
+  function sortedProjects(rank) {
+    const ps = state.data.projects.slice();
+    if (state.projSort === 'created') return ps.sort((a, b) => +a.id - +b.id);
+    if (state.projSort === 'due') {
+      const key = p => (p.due_date && p.due_type !== 'none') ? p.due_date : '9999-99-99';
+      return ps.sort((a, b) => key(a).localeCompare(key(b)) ||
+        ((a.due_type === 'fixed' ? 0 : 1) - (b.due_type === 'fixed' ? 0 : 1)) || rank.get(+a.id) - rank.get(+b.id));
+    }
+    return ps.sort((a, b) => rank.get(+a.id) - rank.get(+b.id));
   }
 
   function renderProjects() {
     const ps = state.data.projects;
     $('#projEmpty').hidden = ps.length > 0;
-    const chev = '<svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2.5 7.5 6 4 9.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
     const STATUS = { paused: T('보류'), done: T('완료'), archived: T('보관') };
-    $('#projRows').innerHTML = ps.map(p => {
-      const hops = (p.hops || []).map((x, i, arr) => {
-        const w = wsById(x.workspace_id), t = toolById(x.tool_id);
-        if (!w || !t) return '';
-        return '<span class="hop' + (i === arr.length - 1 ? ' cur' : '') + '" style="--pc:' + pcVar(w) + '">' +
-          esc(w.name) + ' ' + esc(t.name) + (x.stage ? ' <span class="stage">' + esc(x.stage) + '</span>' : '') + '</span>';
-      }).filter(Boolean).join(chev);
+    const rank = projectRanks(), canDrag = state.projSort === 'rank';
+    $('.projects').classList.toggle('can-drag', canDrag);
+    $('#projRows').innerHTML = sortedProjects(rank).map(p => {
+      const rk = rank.get(+p.id);
       let dd = '<span class="dday none">' + T('마감 없음') + '</span>';
       if (p.due_date && p.due_type !== 'none') {
         const n = dayDiff(parse(p.due_date).getTime());
@@ -400,13 +437,19 @@
         dd = '<span class="dday ' + (fixed ? 'fixed' : 'self') + (soon ? ' soon' : '') + '" title="' + esc(p.due_date) + '">' + dlabel(n) + '</span>' +
           '<span class="dkind">' + (fixed ? T('정해진 마감') : T('자체 마감')) + '</span>';
       }
+      const devs = (p.ws_ids || []).map(wsById).filter(Boolean).map((w, i) =>
+        '<span class="pcws' + (i === 0 ? ' cur' : '') + '" style="--pc:' + pcVar(w) + '"' + (i === 0 ? ' title="' + T('가장 최근 작업') + '"' : '') + '>' + esc(w.name) + '</span>').join('');
+      const mainWs = p.workspace_id && wsById(p.workspace_id);
       return '<tr data-id="' + p.id + '" class="' + esc(p.status) + '" tabindex="0">' +
-        '<td><div class="pname"><span class="pri p' + p.priority + '" aria-label="' + T('우선순위 {n}', { n: p.priority }) + '"></span>' + esc(p.name) +
-        (STATUS[p.status] ? '<span class="pstate">' + STATUS[p.status] + '</span>' : '') + '</div>' +
+        '<td class="c-rank">' + (canDrag
+          ? '<button type="button" class="rk" data-drag aria-label="' + T('중요도 {n}위. 끌거나 위아래 화살표 키로 순서를 바꿉니다.', { n: rk }) + '" title="' + T('끌어서 순서 바꾸기') + '">' + rk + '</button>'
+          : '<span class="rk">' + rk + '</span>') + '</td>' +
+        '<td><div class="pname">' + esc(p.name) + (STATUS[p.status] ? '<span class="pstate">' + STATUS[p.status] + '</span>' : '') + '</div>' +
         '<div class="pcat">' + [esc(p.category || ''), esc(p.phase || ''),
-          p.workspace_id && wsById(p.workspace_id) ? '<span class="pcws" style="--pc:' + pcVar(wsById(p.workspace_id)) + '">' + esc(wsById(p.workspace_id).name) + '</span>' : '']
-          .filter(Boolean).join(', ') + '</div></td>' +
-        '<td><div class="relay">' + (hops || '<span class="dday none">' + T('기록 없음') + '</span>') + '</div></td>' +
+          mainWs ? T('주: {pc}', { pc: esc(mainWs.name) }) : ''].filter(Boolean).join(', ') + '</div></td>' +
+        '<td><div class="devs">' + (devs || '<span class="dday none">' + T('기록 없음') + '</span>') + '</div></td>' +
+        '<td><div class="tl">' + (toolIcons(p.tool_ids) || '<span class="dday none">-</span>') + '</div></td>' +
+        '<td>' + progBar(p.progress) + '</td>' +
         '<td class="next">' + (p.next_action ? esc(p.next_action) : '<span class="none">' + T('정하지 않음') + '</span>') + '</td>' +
         '<td>' + dd + '</td></tr>';
     }).join('');
@@ -498,6 +541,7 @@
       out.push(cap(T('{when} {pc}의 {tool}에서 {proj} 작업을 했습니다.', {
         when: when, pc: esc(w ? w.name : '?'), tool: esc(t ? t.name : '?'),
         proj: '<strong>' + esc(pick.project_name || T('미분류')) + '</strong>' })));
+      if (p && p.progress !== null && p.progress !== undefined) out.push(T('진행률 {n}%', { n: +p.progress }));
       if (p && p.next_action) out.push(T('이어서 할 일: {next}', { next: esc(p.next_action) }));
       else if (pick.summary) out.push(T('마지막 기록: {s}', { s: esc(pick.summary) }));
       const here = store.get('pc', '');
@@ -509,9 +553,10 @@
       out.push(T('아직 작업 기록이 없습니다. 오늘 첫 기록을 남겨 보세요.'));
     }
     // 오래 손대지 않은 진행 중 프로젝트 (우선순위 높은 순으로 1건)
-    const stale = d.projects.filter(p => p.status === 'active' && (p.hops || []).length)
-      .map(p => ({ p: p, n: -dayDiff(parse(p.hops[p.hops.length - 1].at).getTime()) }))
-      .filter(x => x.n >= 7).sort((a, b) => a.p.priority - b.p.priority || b.n - a.n)[0];
+    const rank = projectRanks();
+    const stale = d.projects.filter(p => p.status === 'active' && p.last_at)
+      .map(p => ({ p: p, n: -dayDiff(parse(p.last_at).getTime()) }))
+      .filter(x => x.n >= 7).sort((a, b) => rank.get(+a.p.id) - rank.get(+b.p.id) || b.n - a.n)[0];
     if (stale) out.push(T('{p}는 {n}일째 기록이 없습니다.', { p: esc(stale.p.name), n: stale.n }));
     return out.slice(0, 4);
   }
@@ -593,6 +638,8 @@
     formA.elements.summary.value = pre.summary || '';
     formA.elements.next_action.value = '';
     formA.elements.cwd.value = pre.cwd || '';
+    const pp = pre.project_id && projById(pre.project_id);
+    setProgress(pre.progress !== undefined && pre.progress !== null ? pre.progress : (!pre.id && pp ? pp.progress : null));
     formA.elements.at.value = pre.at ? localInputValue(parse(pre.at).getTime()) : localInputValue(nowMs());
     // reset()이 라디오 선택을 지우므로 다시 지정
     const pcSel = pre.workspace_id || store.get('pc', '');
@@ -604,6 +651,30 @@
     dlgA.showModal();
     (pcSel ? formA.elements.summary : $('input[name="workspace_id"]', formA)).focus();
   }
+
+  // 진행률: 막대를 끌거나 숫자를 직접 입력한다. 비워 두면 진행률을 기록하지 않는다.
+  const progR = $('#actProgR'), progN = $('#actProgN');
+  function setProgress(v) {
+    const has = v !== null && v !== undefined && v !== '';
+    progN.value = has ? Math.max(0, Math.min(100, Math.round(+v))) : '';
+    progR.value = has ? progN.value : 0;
+    $('#actProgWrap').classList.toggle('unset', !has);
+    progR.style.setProperty('--v', (has ? progN.value : 0) + '%');
+  }
+  progR.addEventListener('input', () => setProgress(progR.value));
+  progN.addEventListener('input', () => {
+    if (progN.value === '') { setProgress(null); return; }
+    const v = Math.max(0, Math.min(100, +progN.value));
+    progR.value = v; progR.style.setProperty('--v', v + '%');
+    $('#actProgWrap').classList.remove('unset');
+  });
+  progN.addEventListener('change', () => setProgress(progN.value === '' ? null : progN.value));
+  $('#actProgClear').addEventListener('click', () => setProgress(null));
+  $('#actProject').addEventListener('change', e => {
+    if (formA.elements.id.value) return;
+    const p = projById(e.target.value);
+    setProgress(p ? p.progress : null);
+  });
 
   formA.addEventListener('submit', async e => {
     e.preventDefault();
@@ -645,7 +716,6 @@
     formP.elements.id.value = p.id || '';
     formP.elements.name.value = p.name || '';
     formP.elements.category.value = p.category || '';
-    formP.elements.priority.value = p.priority || 2;
     formP.elements.status.value = p.status || 'active';
     formP.elements.due_date.value = p.due_date || '';
     setDueType(p.id ? (p.due_type || (p.due_date ? 'self' : 'none')) : 'none');
@@ -744,15 +814,11 @@
   $('#mxScroll').addEventListener('scroll', () => updateMxNav(), { passive: true });
   window.addEventListener('resize', () => { if (state.data) updateMxNav(); });
 
-  // 매트릭스
+  // 작업공간 칸
   $('#matrix').addEventListener('click', e => {
     const b = e.target.closest('button.cell');
     if (!b) return;
-    if (b.dataset.new) {
-      const [ws, tool] = b.dataset.new.split('|');
-      openActivity({ workspace_id: ws, tool_id: tool });
-      return;
-    }
+    if (b.dataset.new) { openActivity({ workspace_id: b.dataset.new }); return; }
     state.openCell = state.openCell === b.dataset.key ? null : b.dataset.key;
     $$('#matrix .cell[aria-pressed]').forEach(x => x.setAttribute('aria-pressed', x.dataset.key === state.openCell));
     renderDetail();
@@ -761,24 +827,27 @@
   $('#detail').addEventListener('click', async e => {
     const b = e.target.closest('[data-act]');
     if (!b || b.tagName === 'SELECT') return;
-    const c = state.data.cells.find(x => x.workspace_id + '|' + x.tool_id === state.openCell);
-    if (!c) return;
+    const g = openGroup();
+    if (!g) return;
+    const it = g.items[0] || {};
     if (b.dataset.act === 'continue') {
-      openActivity({ workspace_id: c.workspace_id, tool_id: c.tool_id, project_id: c.project_id, stage: c.stage, cwd: c.cwd });
+      openActivity({ workspace_id: g.workspace_id, tool_id: it.tool_id, project_id: g.project_id, stage: it.stage, cwd: it.cwd, progress: g.progress });
     } else if (b.dataset.act === 'edit') {
-      openActivity(c);
+      const a = g.items.find(x => +x.id === +b.dataset.id);
+      if (a) openActivity(a);
     } else if (b.dataset.act === 'copy') {
-      try { await navigator.clipboard.writeText(c.cwd); toast(T('폴더 경로를 복사했습니다.')); }
+      try { await navigator.clipboard.writeText(it.cwd); toast(T('폴더 경로를 복사했습니다.')); }
       catch (err) { toast(T('복사하지 못했습니다. 경로를 직접 선택해 복사하세요.'), true); }
     }
   });
 
   $('#detail').addEventListener('change', async e => {
     if (e.target.dataset.act !== 'assign') return;
-    const c = state.data.cells.find(x => x.workspace_id + '|' + x.tool_id === state.openCell);
-    if (!c) return;
+    const g = openGroup();
+    if (!g) return;
     try {
-      await api('activity.assign', { id: c.id, project_id: e.target.value });
+      for (const a of g.items) await api('activity.assign', { id: a.id, project_id: e.target.value });
+      state.openCell = null;
       toast(T('프로젝트를 지정했습니다. 같은 폴더의 기록은 앞으로 자동 분류됩니다.'));
       load();
     } catch (err) { toast(err.message, true); }
@@ -786,11 +855,74 @@
 
   // 프로젝트 행
   const openRow = tr => { const p = projById(tr.dataset.id); if (p) openProject(p); };
-  $('#projRows').addEventListener('click', e => { const tr = e.target.closest('tr[data-id]'); if (tr) openRow(tr); });
-  $('#projRows').addEventListener('keydown', e => {
-    if (e.key !== 'Enter') return;
+  const tbodyP = $('#projRows');
+  tbodyP.addEventListener('click', e => {
+    if (e.target.closest('[data-drag]') || Date.now() - (state.dragEnd || 0) < 400) return;
     const tr = e.target.closest('tr[data-id]'); if (tr) openRow(tr);
   });
+  tbodyP.addEventListener('keydown', e => {
+    const h = e.target.closest('[data-drag]');
+    if (h && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      const tr = h.closest('tr');
+      const sib = e.key === 'ArrowUp' ? tr.previousElementSibling : tr.nextElementSibling;
+      if (!sib) return;
+      tbodyP.insertBefore(tr, e.key === 'ArrowUp' ? sib : sib.nextElementSibling);
+      h.focus();
+      saveRank(tr.dataset.id);
+      return;
+    }
+    if (e.key !== 'Enter' || h) return;
+    const tr = e.target.closest('tr[data-id]'); if (tr) openRow(tr);
+  });
+
+  // 중요도 순서: 번호를 끌어서 위아래로 옮긴다 (마우스, 터치 공통)
+  state.drag = null;
+  tbodyP.addEventListener('pointerdown', e => {
+    const h = e.target.closest('[data-drag]');
+    if (!h || state.projSort !== 'rank' || e.button > 0) return;
+    e.preventDefault();
+    h.setPointerCapture(e.pointerId);
+    state.drag = { tr: h.closest('tr'), y: e.clientY, moved: false };
+    state.drag.tr.classList.add('dragging');
+  });
+  tbodyP.addEventListener('pointermove', e => {
+    const dg = state.drag;
+    if (!dg) return;
+    if (!dg.moved && Math.abs(e.clientY - dg.y) < 4) return;
+    dg.moved = true;
+    const rows = $$('tr[data-id]', tbodyP).filter(r => r !== dg.tr);
+    const before = rows.find(r => { const b = r.getBoundingClientRect(); return e.clientY < b.top + b.height / 2; });
+    if (before !== dg.tr.nextElementSibling) tbodyP.insertBefore(dg.tr, before || null);
+  });
+  const endDrag = () => {
+    const dg = state.drag;
+    if (!dg) return;
+    state.drag = null;
+    dg.tr.classList.remove('dragging');
+    if (dg.moved) { state.dragEnd = Date.now(); saveRank(dg.tr.dataset.id); }
+  };
+  tbodyP.addEventListener('pointerup', endDrag);
+  tbodyP.addEventListener('pointercancel', endDrag);
+
+  async function saveRank(focusId) {
+    const rows = $$('tr[data-id]', tbodyP);
+    rows.forEach((r, i) => { const b = $('.rk', r); if (b) b.textContent = i + 1; });
+    const ids = rows.map(r => +r.dataset.id);
+    // 화면 데이터도 바로 고쳐 둔다 (다음 새로고침 전까지)
+    const slots = ids.map(id => +projById(id).sort_order).sort((a, b) => a - b);
+    ids.forEach((id, i) => { projById(id).sort_order = slots[i]; });
+    try {
+      await api('project.reorder', { ids: ids });
+      await load(true);
+      const b = focusId && $('tr[data-id="' + focusId + '"] [data-drag]', tbodyP);
+      if (b && document.activeElement === document.body) b.focus();
+    } catch (err) { toast(err.message, true); load(); }
+  }
+
+  state.projSort = store.get('projSort', 'rank');
+  $('#projSort').value = state.projSort;
+  $('#projSort').addEventListener('change', e => { state.projSort = e.target.value; store.set('projSort', state.projSort); renderProjects(); });
 
   // 최근 기록
   $('#feed').addEventListener('click', e => {
@@ -859,7 +991,7 @@
 
   /* ---------- 자동 새로고침: 1분마다, 대화상자가 열려 있거나 편집 중이면 건너뜀 ---------- */
   setInterval(() => {
-    if (document.hidden || dlgA.open || dlgP.open || document.querySelector('.memos .edit')) { renderTop(); return; }
+    if (document.hidden || dlgA.open || dlgP.open || state.drag || document.querySelector('.memos .edit')) { renderTop(); return; }
     load(true);
   }, 60000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && !dlgA.open && !dlgP.open) load(true); });

@@ -42,6 +42,9 @@ try {
 
         case 'project.save':
             json_out(['ok' => true, 'id' => project_save($in)]);
+        case 'project.reorder':
+            project_reorder(is_array($in['ids'] ?? null) ? $in['ids'] : []);
+            json_out(['ok' => true]);
         case 'project.delete':
             if (!$id) { json_fail('프로젝트를 지정하세요.'); }
             project_delete($id);

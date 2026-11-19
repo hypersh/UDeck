@@ -9,7 +9,7 @@ declare(strict_types=1);
 // 예: /home/me/www/udeck → /home/me/udeck_private
 define('UDECK_PRIVATE', dirname(__DIR__, 2) . '/udeck_private');
 define('UDECK_WWW', __DIR__);
-define('UDECK_VERSION', '1.1.0');
+define('UDECK_VERSION', '1.2.0');
 
 if (!is_dir(UDECK_PRIVATE)) {
     http_response_code(500);
