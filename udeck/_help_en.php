@@ -25,14 +25,18 @@
       <h2>1. Overview</h2>
       <h3>Screen layout</h3>
       <table class="tbl">
-        <thead><tr><th style="width:18%">Column</th><th>Areas</th><th>Content</th></tr></thead>
+        <thead><tr><th style="width:18%">Board</th><th>Areas</th><th>Content</th></tr></thead>
         <tbody>
-          <tr><td>1</td><td>Schedule, Tasks, Mail</td><td>Pulled from Google every 10 minutes; only titles and lists are shown. Use each area's "Open" link to view or edit in Google.</td></tr>
-          <tr><td>2</td><td>Workspaces, Projects, Recent records</td><td>Work status by PC and tool, filled by manual entries and automatic logging.</td></tr>
-          <tr><td>3</td><td>Notes</td><td>Quick notes written directly in UDeck.</td></tr>
+          <tr><td>List board</td><td>Schedule, Tasks, Mail</td><td>Pulled from Google every 10 minutes; only titles and lists are shown. Use each area's "Open" link to view or edit in Google.</td></tr>
+          <tr><td>Status board</td><td>Workspaces, Projects, Recent records</td><td>Work status by PC and tool, filled by manual entries and automatic logging.</td></tr>
+          <tr><td>Black board</td><td>Notes, AI assistant</td><td>Quick notes written directly in UDeck, and a summary of what needs your attention today.</td></tr>
         </tbody>
       </table>
-      <p>On narrower screens Notes move to the top of column 1. On phones, Workspaces come first.</p>
+      <ul>
+        <li>Three columns are kept down to a 16-inch laptop width (about 1200px). As the window narrows, the Status board shrinks first.</li>
+        <li>Below that, the layout becomes two columns: the List board on the left, the Black board on the top right (notes and AI assistant side by side), and the Status board below it.</li>
+        <li>On phones (760px or less), tabs at the top (List board, Status board, Black board) show one board at a time. The last board you viewed is remembered.</li>
+      </ul>
 
       <h3>Where the data comes from</h3>
       <table class="tbl">
@@ -84,9 +88,18 @@
         <li>Type and press Enter to add. Click a note to edit; Enter saves, Esc cancels.</li>
         <li>Hover to show Pin, Done and Delete. Pinned notes stay at the top.</li>
       </ul>
+      <h3>AI assistant</h3>
+      <ul>
+        <li>Builds its messages from the data on the board using fixed rules. It does not call any external AI API, so it costs nothing.</li>
+        <li>Urgent: overdue tasks and tasks due today, events in the next 3 hours, fixed deadlines within 14 days, self-set deadlines within 3 days, and starred mail.</li>
+        <li>Pick up today: your most recent work linked to a project (which PC, tool and project) and that project's next step. If you are on a different PC now, it suggests reading HANDOFF.md first. It also flags active projects with no records for more than 7 days.</li>
+        <li>A proverb or a short line appears at the bottom.</li>
+        <li>It recalculates every 15 minutes. Click Refresh to recalculate now and change the line.</li>
+      </ul>
       <h3>Workspace matrix</h3>
       <ul>
-        <li>Rows are PCs and columns are desktop tools. Each cell shows the most recent work for that PC and tool.</li>
+        <li>Rows are PCs and columns are tools. Tools with records come first, then desktop tools without records. Each cell shows the most recent work for that PC and tool.</li>
+        <li>Up to 3 tools are visible at a time. If there are more, use the ◀ ▶ buttons next to the title (or scroll sideways). The PC name column stays in place.</li>
         <li>The more recent the work, the stronger the color (half-life of 3 hours). Work within the last hour shows its time in the PC's color.</li>
         <li>The small bars at the bottom right show activity over the last 7 days (three slots per day).</li>
         <li>Click a cell to open details: continue logging, edit the record, copy the folder path, open Remote Desktop, or assign a project.</li>
@@ -97,6 +110,7 @@
         <li>Click a row to edit. Setting the status to "Done" hides it; check "Show done" to see it again.</li>
         <li>The work flow shows, automatically, the order of PCs and tools that appear in the project's records. The last step is where the project is now.</li>
         <li>The main workspace is the PC where you mostly work on the project, shown as a colored dot under its name.</li>
+        <li>Choose one of three deadline types: No deadline; Self-set (a target date you chose, ochre D-day); Fixed deadline (a date you must meet, such as a submission deadline, red D-day pill). Fixed deadlines also appear under Urgent in the AI assistant from 14 days before.</li>
       </ul>
       <h3>Recent records</h3>
       <p>The last 30 work records from all PCs. Hover to show "Edit"; you can delete from the edit form.</p>

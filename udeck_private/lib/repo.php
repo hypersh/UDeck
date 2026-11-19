@@ -107,7 +107,8 @@ function board_data(bool $includeDone = false): array
     $where = $includeDone ? '' : "WHERE status IN ('active','paused')";
     $projects = $db->query("SELECT * FROM projects {$where}
         ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END,
-                 priority, CASE WHEN due_date IS NULL THEN 1 ELSE 0 END, due_date, sort_order, id")->fetchAll();
+                 priority, CASE WHEN due_date IS NULL THEN 1 ELSE 0 END, due_date,
+                 CASE due_type WHEN 'fixed' THEN 0 ELSE 1 END, sort_order, id")->fetchAll();
     $hopSt = $db->prepare('SELECT workspace_id, tool_id, stage, last_active_at
         FROM activities WHERE project_id = ? ORDER BY last_active_at ASC, id ASC');
     foreach ($projects as &$p) {
@@ -358,10 +359,16 @@ function project_save(array $in): int
         'phase'       => clean($in['phase'] ?? null, 40),
         'priority'    => $pri,
         'due_date'    => to_date($in['due_date'] ?? null),
+        'due_type'    => in_array($in['due_type'] ?? '', ['none', 'self', 'fixed'], true) ? $in['due_type'] : 'self',
         'folder_path' => clean($in['folder_path'] ?? null, 200),
         'next_action' => clean($in['next_action'] ?? null, 300),
         'workspace_id'=> null,
     ];
+    // 마감 없음이면 날짜를 지우고, 날짜가 없으면 마감 없음으로 본다
+    if ($vals['due_type'] === 'none' || !$vals['due_date']) {
+        $vals['due_type'] = 'none';
+        $vals['due_date'] = null;
+    }
     $wsId = int_or_null($in['workspace_id'] ?? null);
     if ($wsId && row_exists('workspaces', $wsId)) {
         $vals['workspace_id'] = $wsId;

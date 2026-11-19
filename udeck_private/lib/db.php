@@ -76,6 +76,9 @@ function udeck_migrate(PDO $pdo): void
               UPDATE workspaces SET color = CASE code WHEN 'home' THEN 'teal' WHEN 'office' THEN 'indigo'
                                                      WHEN 'laptop' THEN 'ochre' ELSE 'slate' END;
               ALTER TABLE projects ADD COLUMN workspace_id INTEGER REFERENCES workspaces(id) ON DELETE SET NULL;",
+        // v4: 마감 종류 (none: 마감 없음, self: 자체 마감, fixed: 정해진 제출기한)
+        4 => "ALTER TABLE projects ADD COLUMN due_type TEXT NOT NULL DEFAULT 'none';
+              UPDATE projects SET due_type = CASE WHEN due_date IS NULL OR due_date = '' THEN 'none' ELSE 'self' END;",
     ];
     foreach ($migrations as $ver => $sql) {
         if ($ver <= $current) {

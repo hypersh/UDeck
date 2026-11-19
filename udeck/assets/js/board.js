@@ -128,7 +128,12 @@
   const wsById = id => state.data.workspaces.find(w => +w.id === +id);
   const toolById = id => state.data.tools.find(t => +t.id === +id);
   const projById = id => state.data.projects.find(p => +p.id === +id);
-  const matrixTools = () => state.data.tools.filter(t => +t.is_active === 1 && t.kind === 'desktop');
+  // 매트릭스 열: 기록이 있는 도구를 앞에, 그다음 기록이 없는 데스크톱 도구
+  const matrixTools = () => {
+    const used = new Set(state.data.cells.map(c => +c.tool_id));
+    const ts = state.data.tools.filter(t => used.has(+t.id) || (+t.is_active === 1 && t.kind === 'desktop'));
+    return ts.filter(t => used.has(+t.id)).concat(ts.filter(t => !used.has(+t.id)));
+  };
 
   /* =====================================================================
      렌더링
@@ -294,9 +299,11 @@
   function renderMatrix() {
     const d = state.data, tools = matrixTools(), m = $('#matrix');
     m.style.setProperty('--cols', Math.max(1, tools.length));
+    m.style.setProperty('--vis', Math.max(1, Math.min(3, tools.length)));
+    m.classList.toggle('compact', tools.length >= 3);
     const cells = {};
     d.cells.forEach(c => { cells[c.workspace_id + '|' + c.tool_id] = c; });
-    let h = '<div></div>' + tools.map(t => '<div class="mx-colh">' + esc(t.name) + '</div>').join('');
+    let h = '<div class="mx-corner"></div>' + tools.map(t => '<div class="mx-colh" title="' + esc(t.name) + '">' + esc(t.name) + '</div>').join('');
     d.workspaces.forEach(w => {
       const seen = w.last_seen_at && minsAgo(w.last_seen_at) < 20;
       const last = [w.last_seen_at, w.last_activity_at].filter(Boolean).sort().pop();
@@ -324,6 +331,21 @@
     });
     m.innerHTML = h;
     renderDetail();
+    updateMxNav();
+  }
+
+  /* 도구가 3개를 넘으면 ◀ ▶ 버튼으로 옆으로 넘겨 본다 */
+  function mxStep() {
+    const c = $('#matrix .mx-colh');
+    return c ? c.getBoundingClientRect().width + 6 : 200;
+  }
+  function updateMxNav() {
+    const sc = $('#mxScroll'), nav = $('#mxNav');
+    const over = sc.scrollWidth - sc.clientWidth > 4 && getComputedStyle(sc).overflowX !== 'visible';
+    nav.hidden = !over;
+    if (!over) return;
+    $('#mxPrev').disabled = sc.scrollLeft <= 2;
+    $('#mxNext').disabled = sc.scrollLeft >= sc.scrollWidth - sc.clientWidth - 2;
   }
 
   function renderDetail() {
@@ -370,10 +392,13 @@
         return '<span class="hop' + (i === arr.length - 1 ? ' cur' : '') + '" style="--pc:' + pcVar(w) + '">' +
           esc(w.name) + ' ' + esc(t.name) + (x.stage ? ' <span class="stage">' + esc(x.stage) + '</span>' : '') + '</span>';
       }).filter(Boolean).join(chev);
-      let dd = '<span class="dday none">' + T('없음') + '</span>';
-      if (p.due_date) {
+      let dd = '<span class="dday none">' + T('마감 없음') + '</span>';
+      if (p.due_date && p.due_type !== 'none') {
         const n = dayDiff(parse(p.due_date).getTime());
-        dd = '<span class="dday' + (n <= 14 ? ' soon' : '') + '">' + (n === 0 ? 'D-Day' : n > 0 ? 'D-' + n : 'D+' + (-n)) + '</span>';
+        const fixed = p.due_type === 'fixed';
+        const soon = fixed ? n <= 14 : n <= 3;
+        dd = '<span class="dday ' + (fixed ? 'fixed' : 'self') + (soon ? ' soon' : '') + '" title="' + esc(p.due_date) + '">' + dlabel(n) + '</span>' +
+          '<span class="dkind">' + (fixed ? T('정해진 마감') : T('자체 마감')) + '</span>';
       }
       return '<tr data-id="' + p.id + '" class="' + esc(p.status) + '" tabindex="0">' +
         '<td><div class="pname"><span class="pri p' + p.priority + '" aria-label="' + T('우선순위 {n}', { n: p.priority }) + '"></span>' + esc(p.name) +
@@ -386,6 +411,8 @@
         '<td>' + dd + '</td></tr>';
     }).join('');
   }
+
+  const dlabel = n => n === 0 ? 'D-Day' : n > 0 ? 'D-' + n : 'D+' + (-n);
 
   function renderFeed() {
     const f = state.data.feed;
@@ -403,9 +430,122 @@
     }).join('');
   }
 
+  /* =====================================================================
+     AI 비서 (규칙 기반, API를 쓰지 않음)
+     ===================================================================== */
+  const QUOTES = [
+    ['천 리 길도 한 걸음부터.', 'A journey of a thousand miles begins with a single step.', '속담'],
+    ['시작이 반이다.', 'Well begun is half done.', '속담'],
+    ['티끌 모아 태산.', 'Many a little makes a mickle.', '속담'],
+    ['급할수록 돌아가라.', 'More haste, less speed.', '속담'],
+    ['돌다리도 두들겨 보고 건너라.', 'Look before you leap.', '속담'],
+    ['구슬이 서 말이라도 꿰어야 보배.', 'Beads are treasure only once they are strung.', '속담'],
+    ['낙숫물이 댓돌을 뚫는다.', 'Constant dripping wears away the stone.', '속담'],
+    ['아는 길도 물어 가라.', 'Ask the way even on a road you know.', '속담'],
+    ['오늘 끝낸 한 단락이 내일의 열 쪽보다 낫다.', 'One paragraph finished today beats ten pages planned for tomorrow.', '한 줄'],
+    ['마감은 달력에서 보는 것보다 늘 가깝다.', 'Deadlines are always closer than they look on the calendar.', '한 줄'],
+    ['커밋은 자주, 후회는 드물게.', 'Commit often, regret rarely.', '한 줄'],
+    ['백업이 있는 사람은 밤에 잘 잔다.', 'People with backups sleep well.', '한 줄'],
+    ['어제의 내가 남긴 HANDOFF.md는 오늘의 나에게 주는 선물이다.', 'The HANDOFF.md you left yesterday is a gift to yourself today.', '한 줄'],
+    ['p 값보다 중요한 것은 끝까지 쓴 논문이다.', 'A finished paper matters more than a perfect p-value.', '한 줄'],
+    ['버그는 숨지 않는다. 아직 만나지 않았을 뿐이다.', 'Bugs do not hide. You just have not met them yet.', '한 줄'],
+    ['커피는 연료, 휴식은 정비.', 'Coffee is fuel; rest is maintenance.', '한 줄'],
+    ['할 일 목록이 길면 맨 위 하나만 보자.', 'When the list is long, look only at the top item.', '한 줄'],
+    ['쉬는 것도 일정에 넣어야 지켜진다.', 'Rest only happens if it is on the schedule.', '한 줄'],
+  ];
+  const isEn = () => (window.UDECK && window.UDECK.lang) === 'en';
+  const slot15 = () => Math.floor(nowMs() / 900000);
+
+  function aiUrgent() {
+    const g = state.data.google, out = [], now = nowMs();
+    (g.tasks || []).forEach(t => {
+      if (!t.due_at) return;
+      const n = dayDiff(parse(t.due_at).getTime());
+      if (n < 0) out.push({ hot: 1, w: 0, h: T('할 일 기한이 {n}일 지났습니다: {t}', { n: -n, t: esc(t.title) }) });
+      else if (n === 0) out.push({ hot: 1, w: 1, h: T('오늘까지 할 일: {t}', { t: esc(t.title) }) });
+    });
+    (g.events || []).forEach(e => {
+      if (+e.all_day) return;
+      const s = parse(e.start_at).getTime(), en = (parse(e.end_at) || parse(e.start_at)).getTime();
+      const m = Math.round((s - now) / 60000);
+      if (s <= now && en > now) out.push({ hot: 0, w: 2, h: T('진행 중인 일정: {t}', { t: esc(e.title) }) });
+      else if (m > 0 && m <= 180) out.push({ hot: m <= 30 ? 1 : 0, w: 2, h: m < 60
+        ? T('{time} {t} ({n}분 후)', { time: hm(s), t: esc(e.title), n: m })
+        : T('{time} {t} ({h}시간 {n}분 후)', { time: hm(s), t: esc(e.title), h: Math.floor(m / 60), n: m % 60 }) });
+    });
+    state.data.projects.forEach(p => {
+      if (!p.due_date || p.due_type === 'none' || p.status !== 'active') return;
+      const n = dayDiff(parse(p.due_date).getTime());
+      if (p.due_type === 'fixed' && n <= 14) out.push({ hot: n <= 3 ? 1 : 0, w: 3, h: T('정해진 마감 {d}: {p}', { d: dlabel(n), p: esc(p.name) }) });
+      else if (p.due_type === 'self' && n <= 3) out.push({ hot: 0, w: 4, h: T('자체 마감 {d}: {p}', { d: dlabel(n), p: esc(p.name) }) });
+    });
+    const star = (g.mails || []).filter(m => m.status === 'starred');
+    star.slice(0, 2).forEach(m => out.push({ hot: 0, w: 5, h: T('별표 메일: {t}', { t: esc(m.title) }) }));
+    if (star.length > 2) out.push({ hot: 0, w: 5, h: T('별표 메일이 {n}통 더 있습니다.', { n: star.length - 2 }) });
+    return out.sort((a, b) => b.hot - a.hot || a.w - b.w).slice(0, 6);
+  }
+
+  function aiContinue() {
+    const d = state.data, out = [];
+    const feed = d.feed || [];
+    // 프로젝트가 지정된 가장 최근 기록을 기준으로 삼는다 (없으면 가장 최근 기록)
+    const pick = feed.find(a => a.project_id) || feed[0];
+    if (pick) {
+      const w = wsById(pick.workspace_id), t = toolById(pick.tool_id), p = pick.project_id ? projById(pick.project_id) : null;
+      const n = dayDiff(parse(pick.last_active_at).getTime());
+      const when = n === 0 ? T('오늘') : n === -1 ? T('어제') : T('{n}일 전', { n: -n });
+      const cap = x => x.charAt(0).toUpperCase() + x.slice(1);
+      out.push(cap(T('{when} {pc}의 {tool}에서 {proj} 작업을 했습니다.', {
+        when: when, pc: esc(w ? w.name : '?'), tool: esc(t ? t.name : '?'),
+        proj: '<strong>' + esc(pick.project_name || T('미분류')) + '</strong>' })));
+      if (p && p.next_action) out.push(T('이어서 할 일: {next}', { next: esc(p.next_action) }));
+      else if (pick.summary) out.push(T('마지막 기록: {s}', { s: esc(pick.summary) }));
+      const here = store.get('pc', '');
+      if (here && w && +here !== +w.id) {
+        const hw = wsById(here);
+        if (hw) out.push(T('지금은 {here}입니다. {pc}에서 이어 가거나 HANDOFF.md를 먼저 확인하세요.', { here: esc(hw.name), pc: esc(w.name) }));
+      }
+    } else {
+      out.push(T('아직 작업 기록이 없습니다. 오늘 첫 기록을 남겨 보세요.'));
+    }
+    // 오래 손대지 않은 진행 중 프로젝트 (우선순위 높은 순으로 1건)
+    const stale = d.projects.filter(p => p.status === 'active' && (p.hops || []).length)
+      .map(p => ({ p: p, n: -dayDiff(parse(p.hops[p.hops.length - 1].at).getTime()) }))
+      .filter(x => x.n >= 7).sort((a, b) => a.p.priority - b.p.priority || b.n - a.n)[0];
+    if (stale) out.push(T('{p}는 {n}일째 기록이 없습니다.', { p: esc(stale.p.name), n: stale.n }));
+    return out.slice(0, 4);
+  }
+
+  function aiGreeting() {
+    const h = kstParts(nowMs()).h;
+    const g = h < 5 ? T('밤이 깊었습니다. 무리하지 마세요.') : h < 11 ? T('좋은 아침입니다.') : h < 14 ? T('점심 무렵입니다.') :
+      h < 18 ? T('오후 시간입니다.') : h < 22 ? T('저녁 시간입니다.') : T('밤이 깊었습니다. 무리하지 마세요.');
+    const today = dayKey(nowMs()), g2 = state.data.google;
+    const ev = (g2.events || []).filter(e => dayKey(parse(e.start_at).getTime()) === today).length;
+    const tk = (g2.tasks || []).filter(t => t.due_at && dayDiff(parse(t.due_at).getTime()) <= 0).length;
+    return g + ' ' + T('오늘 일정 {e}건, 오늘까지 할 일 {t}건입니다.', { e: ev, t: tk });
+  }
+
+  function renderAI(force) {
+    if (!state.data) return;
+    const sl = slot15();
+    if (!force && state.aiSlot === sl) return;
+    state.aiSlot = sl;
+    const urg = aiUrgent(), con = aiContinue();
+    const q = QUOTES[(sl + (force ? Math.floor(Math.random() * QUOTES.length) : 0)) % QUOTES.length];
+    $('#aiBox').innerHTML =
+      '<p class="ai-hello">' + esc(aiGreeting()) + '</p>' +
+      '<div class="ai-block"><h3>' + T('급한 일') + '</h3>' + (urg.length
+        ? '<ul>' + urg.map(x => '<li' + (x.hot ? ' class="hot"' : '') + '>' + x.h + '</li>').join('') + '</ul>'
+        : '<p class="muted">' + T('급한 일이 없습니다. 깊이 있는 작업에 좋은 때입니다.') + '</p>') + '</div>' +
+      '<div class="ai-block"><h3>' + T('오늘 이어서') + '</h3><ul>' + con.map(x => '<li>' + x + '</li>').join('') + '</ul></div>' +
+      '<p class="ai-quote">' + esc(isEn() ? q[1] : q[0]) + '</p>' +
+      '<p class="ai-foot">' + T('규칙 기반 안내. {t} 기준, 15분마다 바뀝니다.', { t: hm(nowMs()) }) + '</p>';
+  }
+
   function renderAll() {
     renderTop(); renderAgenda(); renderTasks(); renderMails(); renderMemos();
-    renderMatrix(); renderProjects(); renderFeed();
+    renderMatrix(); renderProjects(); renderFeed(); renderAI();
   }
 
   /* =====================================================================
@@ -508,6 +648,7 @@
     formP.elements.priority.value = p.priority || 2;
     formP.elements.status.value = p.status || 'active';
     formP.elements.due_date.value = p.due_date || '';
+    setDueType(p.id ? (p.due_type || (p.due_date ? 'self' : 'none')) : 'none');
     formP.elements.folder_path.value = p.folder_path || '';
     formP.elements.next_action.value = p.next_action || '';
     $('#pjWs').innerHTML = '<option value="">' + T('지정 안 함') + '</option>' + state.data.workspaces.map(w =>
@@ -522,9 +663,21 @@
     formP.elements.name.focus();
   }
 
+  function setDueType(v) {
+    $$('input[name=due_type]', formP).forEach(r => { r.checked = r.value === v; });
+    const inp = formP.elements.due_date;
+    inp.disabled = v === 'none';
+    inp.required = v !== 'none';
+  }
+  $$('input[name=due_type]', formP).forEach(r => r.addEventListener('change', () => {
+    setDueType(r.value);
+    if (r.value !== 'none' && !formP.elements.due_date.value) formP.elements.due_date.focus();
+  }));
+
   formP.addEventListener('submit', async e => {
     e.preventDefault();
     const body = Object.fromEntries(new FormData(formP).entries());
+    if (body.due_type === 'none') body.due_date = '';
     await busy($('button[type=submit]', formP), async () => {
       try {
         await api('project.save', body);
@@ -570,6 +723,26 @@
     document.documentElement.dataset.theme = t;
     store.set('theme', t);
   });
+
+  // 판 전환 탭 (휴대폰)
+  const boardEl = $('.board');
+  function setBoard(b) {
+    boardEl.dataset.active = b;
+    $$('.boardtabs [data-board]').forEach(x => x.setAttribute('aria-selected', x.dataset.board === b));
+    store.set('board', b);
+    if (b === 'status') updateMxNav();
+  }
+  $$('.boardtabs [data-board]').forEach(x => x.addEventListener('click', () => { setBoard(x.dataset.board); window.scrollTo(0, 0); }));
+  setBoard(store.get('board', 'black'));
+
+  // AI 비서
+  $('#aiRefresh').addEventListener('click', () => renderAI(true));
+
+  // 매트릭스 좌우 넘기기
+  $('#mxPrev').addEventListener('click', () => { $('#mxScroll').scrollBy({ left: -mxStep(), behavior: 'smooth' }); });
+  $('#mxNext').addEventListener('click', () => { $('#mxScroll').scrollBy({ left: mxStep(), behavior: 'smooth' }); });
+  $('#mxScroll').addEventListener('scroll', () => updateMxNav(), { passive: true });
+  window.addEventListener('resize', () => { if (state.data) updateMxNav(); });
 
   // 매트릭스
   $('#matrix').addEventListener('click', e => {

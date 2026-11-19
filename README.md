@@ -12,12 +12,14 @@ If you work on a home PC, an office PC and a laptop, each with desktop AI apps s
 
 ## Features
 
-- **Workspace matrix.** Rows are PCs, columns are desktop tools. Each cell shows the latest work, colored by recency (like an activation heat map) with a 7-day activity strip.
-- **Projects with a work flow.** Records are grouped by project automatically from the work folder. Each project shows the path it took, for example *Laptop ChatGPT (draft) → Laptop Claude Code (revision)*, plus its next step and due date.
+- **Three boards.** List board (schedule, tasks, mail), Status board (workspaces, projects, recent records) and Black board (notes, AI assistant). On phones, tabs switch between them.
+- **Workspace matrix.** Rows are PCs, columns are tools. Each cell shows the latest work, colored by recency (like an activation heat map) with a 7-day activity strip. Up to 3 tools are shown at a time; more scroll sideways.
+- **Projects with a work flow.** Records are grouped by project automatically from the work folder. Each project shows the path it took, for example *Laptop ChatGPT (draft) → Laptop Claude Code (revision)*, plus its next step and deadline (none, self-set or fixed; fixed deadlines show in red).
 - **Automatic logging.** A Claude Code `Stop` hook records every reply. A small agent, run every 15 minutes by Windows Task Scheduler, records Codex sessions and `HANDOFF.md` changes. Nothing runs in the background between runs.
 - **HANDOFF.md.** A handoff note in each project folder. When it changes, UDeck updates the project's next step, so moving between PCs or tools keeps its context.
 - **Google Calendar, Tasks and Gmail.** A Google Apps Script sends events (next 2 days, this week, this month), open tasks grouped by list, and unread or starred mail subjects every 10 minutes. Different Google accounts can each send their own part.
 - **Notes.** Quick notes with pinning, editing and completion.
+- **AI assistant (rule-based).** Urgent items, what to pick up today based on your most recent project work, and a proverb or short line. No external AI API, so no cost.
 - **English and Korean.** Switch the interface language in Settings. The built-in help is available in both.
 - **Light and dark themes**, responsive down to phones.
 - **Small footprint.** Plain PHP and one SQLite file. No framework, no build step, no external services besides Google Apps Script.
@@ -82,7 +84,7 @@ Full instructions: [Installation](docs/INSTALL.md). The in-app **Help** page cov
 - The database, configuration and sessions live outside the web root. `.htaccess` also blocks direct access to internal files.
 - Optional IP allow list (`allowed_ips`), for example to restrict access to a Tailscale network.
 
-## Known limitations (1.0)
+## Known limitations (1.1)
 
 - Times are stored and shown in Korea Standard Time (UTC+9).
 - One user per installation.

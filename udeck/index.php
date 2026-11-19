@@ -32,8 +32,15 @@ page_head('UDeck');
   </div>
 </header>
 
+<nav class="boardtabs" role="tablist" aria-label="<?= te('보드') ?>">
+  <button type="button" role="tab" data-board="list"><?= te('목록판') ?></button>
+  <button type="button" role="tab" data-board="status"><?= te('현황판') ?></button>
+  <button type="button" role="tab" data-board="black"><?= te('칠판') ?></button>
+</nav>
+
 <div class="board">
-  <aside class="rail">
+  <aside class="rail" data-board="list" aria-label="<?= te('목록판') ?>">
+    <p class="col-h"><?= te('목록판') ?></p>
     <section class="sec" aria-labelledby="h-agenda">
       <div class="sec-h"><h2 id="h-agenda"><?= te('일정') ?></h2><a class="link" href="https://calendar.google.com/" target="_blank" rel="noopener"><?= te('캘린더 열기') ?></a></div>
       <div class="tabs" role="tablist" aria-label="<?= te('일정 범위') ?>">
@@ -61,16 +68,25 @@ page_head('UDeck');
 
   </aside>
 
-  <main class="main">
+  <main class="main" data-board="status" aria-label="<?= te('현황판') ?>">
+    <p class="col-h"><?= te('현황판') ?></p>
     <section class="sec" aria-labelledby="h-matrix">
       <div class="sec-h">
         <h2 id="h-matrix"><?= te('작업공간') ?></h2>
-        <div class="legend" aria-hidden="true"><?= te('최근 활동') ?>
-          <span class="ramp"><i style="--a:70%"></i><i style="--a:40%"></i><i style="--a:18%"></i><i style="--a:4%"></i></span>
-          <?= te('오래됨') ?></div>
+        <div class="tools">
+          <div class="legend" aria-hidden="true"><?= te('최근 활동') ?>
+            <span class="ramp"><i style="--a:70%"></i><i style="--a:40%"></i><i style="--a:18%"></i><i style="--a:4%"></i></span>
+            <?= te('오래됨') ?></div>
+          <div class="mx-nav" id="mxNav" hidden>
+            <button type="button" class="btn btn-ghost" id="mxPrev" aria-label="<?= te('이전 도구') ?>" title="<?= te('이전 도구') ?>">◀</button>
+            <button type="button" class="btn btn-ghost" id="mxNext" aria-label="<?= te('다음 도구') ?>" title="<?= te('다음 도구') ?>">▶</button>
+          </div>
+        </div>
       </div>
       <div class="matrix-wrap">
-        <div class="matrix" id="matrix"><div class="loading"><?= te('불러오는 중') ?></div></div>
+        <div class="mx-scroll" id="mxScroll">
+          <div class="matrix" id="matrix"><div class="loading"><?= te('불러오는 중') ?></div></div>
+        </div>
         <div class="detail" id="detail" hidden></div>
       </div>
     </section>
@@ -100,7 +116,8 @@ page_head('UDeck');
     </section>
   </main>
 
-  <aside class="memo-col">
+  <aside class="memo-col" data-board="black" aria-label="<?= te('칠판') ?>">
+    <p class="col-h"><?= te('칠판') ?></p>
     <section class="sec memo-sec" aria-labelledby="h-memo">
       <div class="sec-h"><h2 id="h-memo"><?= te('메모') ?></h2><span class="sub" id="memoCount"></span></div>
       <div class="sec-b memo-body">
@@ -111,6 +128,14 @@ page_head('UDeck');
         </form>
         <ul class="memos" id="memos"></ul>
       </div>
+    </section>
+
+    <section class="sec ai-sec" aria-labelledby="h-ai">
+      <div class="sec-h">
+        <h2 id="h-ai"><?= te('AI 비서') ?></h2>
+        <button type="button" class="btn btn-text" id="aiRefresh"><?= te('새로 고침') ?></button>
+      </div>
+      <div class="sec-b" id="aiBox" aria-live="polite"></div>
     </section>
   </aside>
 </div>
@@ -187,7 +212,7 @@ page_head('UDeck');
           <select class="select" id="pjStatus" name="status"><option value="active"><?= te('진행 중') ?></option><option value="paused"><?= te('보류') ?></option><option value="done"><?= te('완료') ?></option><option value="archived"><?= te('보관') ?></option></select>
         </div>
       </div>
-      <div class="grid3">
+      <div class="grid2">
         <div class="field">
           <label for="pjWs"><?= te('주 작업공간') ?></label>
           <select class="select" id="pjWs" name="workspace_id"></select>
@@ -196,10 +221,19 @@ page_head('UDeck');
           <label for="pjFolder"><?= te('작업 폴더 이름') ?> <span class="opt"><?= te('선택') ?></span></label>
           <input class="input" id="pjFolder" name="folder_path" maxlength="200" placeholder="Grant_2027">
         </div>
-        <div class="field">
-          <label for="pjDue"><?= te('마감') ?> <span class="opt"><?= te('선택') ?></span></label>
-          <input class="input" id="pjDue" name="due_date" type="date">
+      </div>
+      <div class="field">
+        <span class="lbl"><?= te('마감') ?></span>
+        <div class="due-row">
+          <div class="seg" role="radiogroup" aria-label="<?= te('마감 종류') ?>">
+            <label><input type="radio" name="due_type" value="none" checked><span><?= te('마감 없음') ?></span></label>
+            <label><input type="radio" name="due_type" value="self"><span><?= te('자체 마감') ?></span></label>
+            <label class="fixed"><input type="radio" name="due_type" value="fixed"><span><?= te('정해진 마감') ?></span></label>
+          </div>
+          <label class="sr" for="pjDue"><?= te('마감 날짜') ?></label>
+          <input class="input" id="pjDue" name="due_date" type="date" disabled>
         </div>
+        <p class="hint"><?= te('정해진 마감은 제출기한처럼 반드시 지켜야 하는 날짜입니다. 보드에 빨간색으로 표시됩니다.') ?></p>
       </div>
       <p class="hint" style="margin:-6px 0 14px;color:var(--muted);font-size:12.5px"><?= te('주 작업공간은 이 프로젝트를 주로 진행하는 PC입니다. 목록에 없는 PC는 설정에서 추가합니다. 작업 폴더 이름을 적어 두면 그 폴더에서 한 작업이 이 프로젝트로 자동 분류됩니다.') ?></p>
       <div class="field">
