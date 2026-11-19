@@ -129,8 +129,8 @@ page_head('UDeck');
       <div class="sec-b memo-body">
         <form class="memo-in" id="memoForm">
           <label class="sr" for="memoInput"><?= te('새 메모') ?></label>
-          <input class="input" id="memoInput" placeholder="<?= te('떠오른 것을 바로 적어 두세요') ?>" maxlength="2000">
-          <button class="btn btn-ghost" type="submit" data-busy="<?= te('추가 중') ?>"><?= te('추가') ?></button>
+          <textarea class="input textarea" id="memoInput" rows="1" placeholder="<?= te('떠오른 것을 바로 적어 두세요') ?>" title="<?= te('Enter는 줄바꿈, Ctrl+Enter는 추가') ?>" maxlength="2000"></textarea>
+          <button class="btn btn-ghost" type="submit" data-busy="<?= te('추가 중') ?>" title="Ctrl+Enter"><?= te('추가') ?></button>
         </form>
         <ul class="memos" id="memos"></ul>
       </div>

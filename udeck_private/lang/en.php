@@ -400,4 +400,5 @@ return [
     '아이콘 이름' => 'Icon label',
     '사용 중인 도구가 작업 기록 창에 나옵니다' => 'Tools in use appear in the work log form',
     '아이콘 이름은 작업공간 박스와 프로젝트 목록의 도구 아이콘에 보이는 짧은 이름입니다(12자 이내). 비워 두면 이름에 맞춰 Codex, GPT, Claude, Claude C, Gemini, Antigravity 중 하나로 정해집니다. "사용"을 끄면 기록 창에서 숨겨집니다.' => 'The icon label is the short name shown on tool icons in workspace boxes and the project list (up to 12 characters). If left blank, it is set from the name: Codex, GPT, Claude, Claude C, Gemini or Antigravity. Turn off "Use" to hide a tool in the log form.',
+    'Enter는 줄바꿈, Ctrl+Enter는 추가' => 'Enter for a new line, Ctrl+Enter to add',
 ];

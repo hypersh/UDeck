@@ -934,15 +934,27 @@
     if (a) openActivity(a);
   });
 
-  // 메모
+  // 메모: 여러 줄 입력. Enter는 줄바꿈, Ctrl+Enter(맥은 ⌘+Enter)는 추가·저장
+  const growTa = ta => {
+    ta.style.height = 'auto';
+    if (ta.value) ta.style.height = Math.min(ta.scrollHeight + 2, 240) + 'px';
+    else ta.style.height = '';
+  };
+  const memoText = v => v.replace(/\r\n?/g, '\n').replace(/^\s*\n|\s+$/g, '');
+  const memoInput = $('#memoInput');
+  memoInput.addEventListener('input', () => growTa(memoInput));
+  memoInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $('#memoForm').requestSubmit(); }
+  });
   $('#memoForm').addEventListener('submit', async e => {
     e.preventDefault();
-    const inp = $('#memoInput'), body = inp.value.trim();
-    if (!body) return;
+    const body = memoText(memoInput.value);
+    if (!body.trim()) return;
     await busy($('#memoForm button[type=submit]'), async () => {
       try {
         await api('note.save', { body: body });
-        inp.value = '';
+        memoInput.value = '';
+        growTa(memoInput);
         await load();
       } catch (err) { toast(err.message, true); }
     });
@@ -974,18 +986,20 @@
     ta.value = n.body;
     ta.setAttribute('aria-label', T('메모 고치기'));
     span.replaceWith(ta);
+    growTa(ta);
+    ta.addEventListener('input', () => growTa(ta));
     ta.focus();
     let done = false;
     const finish = async save => {
       if (done) return; done = true;
-      const v = ta.value.trim();
-      if (save && v && v !== n.body) {
+      const v = memoText(ta.value);
+      if (save && v.trim() && v !== n.body) {
         try { await api('note.save', { id: n.id, body: v }); } catch (err) { toast(err.message, true); }
       }
       load();
     };
     ta.addEventListener('keydown', ev => {
-      if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); finish(true); }
+      if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); finish(true); }
       if (ev.key === 'Escape') { ev.preventDefault(); finish(false); }
     });
     ta.addEventListener('blur', () => finish(true));

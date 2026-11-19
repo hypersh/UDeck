@@ -199,8 +199,9 @@ a{color:inherit}
 .mails .star{color:var(--pc-laptop)}
 
 /* 메모 */
-.memo-in{display:flex;gap:6px;margin-bottom:8px}
+.memo-in{display:flex;gap:6px;margin-bottom:8px;align-items:flex-end}
 .memo-in .input{height:36px}
+.memo-in .textarea{min-height:36px;max-height:240px;padding:7px 10px;resize:none;overflow-y:auto}
 .memo-in .btn{height:36px;flex:none}
 .memos{list-style:none;margin:0;padding:0}
 .memos li{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--surface-2)}
@@ -213,7 +214,7 @@ a{color:inherit}
 .memos li:hover .when,.memos li:focus-within .when{display:none}
 .memos .ops button{border:0;background:none;color:var(--muted);font-size:12px;padding:0 3px;cursor:pointer}
 .memos .ops button:hover{color:var(--ink)}
-.memos .edit{flex:1;height:auto;min-height:36px;padding:6px 8px}
+.memos .edit{flex:1;height:auto;min-height:36px;max-height:240px;padding:6px 8px;resize:none}
 @media (hover:none){.memos .ops{display:flex}.memos .when{display:none}}
 
 /* ---------- 작업공간 매트릭스 ---------- */

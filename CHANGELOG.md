@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.2 (2026-11-19)
+
+- Notes can have several lines. Enter adds a line break; Ctrl + Enter (⌘ + Enter on a Mac) or the Add button adds or saves the note. Line breaks are shown as typed, and the input grows with the text
+
 ## 1.2.1 (2026-11-19)
 
 - Tasks now follow the "My order" sorting of Google Tasks: lists in Google's order, items by position, subtasks indented under their parent. Requires the updated Apps Script (`gas/UDeck_Sync.gs` v1.1); tasks sent by the old script keep the previous order

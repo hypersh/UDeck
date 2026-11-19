@@ -86,7 +86,8 @@
       </ul>
       <h3>Notes</h3>
       <ul>
-        <li>Type and press Enter to add. Click a note to edit; Enter saves, Esc cancels.</li>
+        <li>Notes can have several lines. Enter adds a line break; <b>Ctrl + Enter</b> (⌘ + Enter on a Mac) or the Add button adds the note. Line breaks are shown as typed.</li>
+        <li>Click a note to edit it. Ctrl + Enter or clicking outside saves; Esc cancels.</li>
         <li>Hover to show Pin, Done and Delete. Pinned notes stay at the top.</li>
       </ul>
       <h3>AI assistant</h3>
